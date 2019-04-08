@@ -1,0 +1,43 @@
+#+TITLE: My public speaking appearances (AKA talks)
+
+* Nix lang and build system
+** Overview
+*** What is nix?
+    - a pure functional build system
+    - domain-specific programming language
+    - configuration system for operating systems
+    - a different way of thinking about building, configuring, and packaging software
+*** What it isn't
+    - a completely original or radical idea
+    - the best desktop OS
+    - a good DSL
+    - perfect
+*** Why is it worth talking about?
+** Nix Store, briefly
+*** more than caching
+**** content-addressability
+**** reproducability
+*** creates a path to artifact mapping with symlinks
+** Nix Lang
+*** basic description
+    Haskell and JSON had a baby, but can't agree on parenting styles
+*** syntax
+*** semantics
+*** ergonomics
+*** other langs 
+    ... evidence it isn't the greatest
+**** guix
+**** expresso
+**** dhall2nix
+**** {cabal,yarn,composer,...}2nix
+*** The derivative file format
+** Nix build system
+*** segue: let's use the lang to write a complete nixexpr
+*** the build system a bit more in depth
+*** let's build the nixexpr!
+*** looking at the drv in depth
+** Conclusions
+*** lang sux
+*** build system rox
+*** store slaps
+*** maybe this tool can help you today
