@@ -11,22 +11,25 @@
 *** exposure to a new tool/technique
 *** maybe it will useful to you today?
 * Overview
-** What is nix?
-**** a pure functional build system
-**** domain-specific programming language
-**** a different way of thinking about building, configuring, and packaging software
+** What is Nix?
+**** an FP package manager
+***** packages are the immutable outputs of pure functions
+***** packages are stored, with their deps included, in the Nix store
+***** packages and their dependencies are crypographically hashed
+**** domain-specific programming language for specifing those package functions
+**** a whole ecosystem, including an operating system, a devops tool, and much more
+**** OPINION: a breath of fresh air for building, configuring, and packaging software
 ** What it isn't
-**** a completely original or radical idea
-***** caching / memoization
-***** crypographic hashing
-**** the best desktop OS
-***** I suppliment my application pkgs with AppImage and Flatpak
+**** well documented
 **** a good DSL
 ***** We're going to get into it, promise
-**** perfect
+**** the best desktop OS
+***** I suppliment my package management with AppImage and Flatpak
+**** perfect (hey, fresh air has bad smells too)
 ** Why is it worth talking about?
-**** specify dependencies very precisely
-**** deployments are interesting but robust
+**** dependencies are always included in your package, so if it works on your machine, it works on all machines
+**** rollbacks are a breeze
+***** story about networking woes on my laptop
 * Nix Store
 ** more than caching
 *** content-addressability
