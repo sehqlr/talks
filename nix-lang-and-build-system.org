@@ -1,43 +1,58 @@
-#+TITLE: My public speaking appearances (AKA talks)
+#+TITLE: Nix build system
 
-* Nix lang and build system
-** Overview
-*** What is nix?
-    - a pure functional build system
-    - domain-specific programming language
-    - configuration system for operating systems
-    - a different way of thinking about building, configuring, and packaging software
-*** What it isn't
-    - a completely original or radical idea
-    - the best desktop OS
-    - a good DSL
-    - perfect
-*** Why is it worth talking about?
-** Nix Store, briefly
-*** more than caching
-**** content-addressability
-**** reproducability
-*** creates a path to artifact mapping with symlinks
-** Nix Lang
-*** basic description
-    Haskell and JSON had a baby, but can't agree on parenting styles
-*** syntax
-*** semantics
-*** ergonomics
-*** other langs 
-    ... evidence it isn't the greatest
-**** guix
-**** expresso
-**** dhall2nix
-**** {cabal,yarn,composer,...}2nix
-*** The derivative file format
-** Nix build system
-*** segue: let's use the lang to write a complete nixexpr
-*** the build system a bit more in depth
-*** let's build the nixexpr!
-*** looking at the drv in depth
-** Conclusions
-*** lang sux
-*** build system rox
-*** store slaps
-*** maybe this tool can help you today
+* Introduction
+** Why Polyglots is so great
+*** the conversations I've been in or listened to
+**** talking shop
+**** the outlier technologies
+**** new ideas
+*** I hope that I can contribute to the conversation side
+** What I hope you get out of this
+*** exposure to a new tool/technique
+*** maybe it will useful to you today?
+* Overview
+** What is nix?
+**** a pure functional build system
+**** domain-specific programming language
+**** a different way of thinking about building, configuring, and packaging software
+** What it isn't
+**** a completely original or radical idea
+***** caching / memoization
+***** crypographic hashing
+**** the best desktop OS
+***** I suppliment my application pkgs with AppImage and Flatpak
+**** a good DSL
+***** We're going to get into it, promise
+**** perfect
+** Why is it worth talking about?
+**** specify dependencies very precisely
+**** deployments are interesting but robust
+* Nix Store
+** more than caching
+*** content-addressability
+*** reproducability
+** creates a path to artifact mapping with symlinks
+*** works with existing UNIX paradigm and tech
+* Nix Lang
+** basic description
+*** Haskell and JSON had a baby, but can't agree on parenting styles
+** syntax
+** semantics
+** ergonomics
+** other langs / transpilers
+*** guix
+*** expresso
+*** dhall2nix
+*** {cabal,yarn,composer,...}2nix
+** The derivative file format
+* Nix build system
+** segue: let's use the lang to write a complete nixexpr
+** the build system a bit more in depth
+** let's build the nixexpr!
+** looking at the drv in depth
+* the ecosystem that builds on this, v briefly
+* Conclusions
+** lang sux
+** build system rox
+** store slaps
+** maybe this tool can help you today
