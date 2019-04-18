@@ -23,20 +23,20 @@
 **** well documented
 **** a good DSL
 ***** We're going to get into it, promise
-**** the best desktop OS
-***** I suppliment my package management with AppImage and Flatpak
 **** perfect (hey, fresh air has bad smells too)
 ** Why is it worth talking about?
 **** dependencies are always included in your package, so if it works on your machine, it works on all machines
 **** rollbacks are a breeze
 ***** story about networking woes on my laptop
-* Nix Store
+* Nix Store, the best part
 ** more than caching
 *** content-addressability
 *** reproducability
 ** creates a path to artifact mapping with symlinks
 *** works with existing UNIX paradigm and tech
-* Nix Lang
+**** config files can be linked too, so much config can be managed by Nix also
+*** installing and updating a package is as simple as changing symlinks
+* Nix Lang, the worst part
 ** basic description
 *** Haskell and JSON had a baby, but can't agree on parenting styles
 ** syntax
@@ -54,6 +54,8 @@
 ** let's build the nixexpr!
 ** looking at the drv in depth
 * the ecosystem that builds on this, v briefly
+**** the best desktop OS
+***** I suppliment my package management with AppImage and Flatpak
 * Conclusions
 ** lang sux
 ** build system rox
