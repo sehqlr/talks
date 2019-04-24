@@ -21,7 +21,7 @@ online.
 * Overview
 ** TODO the version of Nix for this talk
 ** What is Nix?
-**** "niks" word history
+**** A new word
      #+begin_quote
      The name Nix is derived from the Dutch word /niks/, meaning /nothing/;
      build actions do not see anything that has not been explicitly declared as
@@ -29,6 +29,13 @@ online.
      -- Nix: A Safe and Policy-Free System for Software Deployment, footnote 1
      #+end_quote
 **** an FP package manager
+     #+begin_src sh
+     nix --version
+     #+end_src
+
+     #+RESULTS:
+     : nix (Nix) 2.2.2
+
 ***** packages are the immutable outputs of pure functions
 ***** packages are stored, with their deps included, in the Nix store
 ****** Nix store is a crypographic hashtable of derivations
@@ -43,7 +50,7 @@ online.
 **** perfect (hey, fresh air has bad smells too)
 ** How long have I used it?
 *** off and on for about 3 years
-*** only seriously started using it for less than a year
+*** only seriously started using it between 6 months to a year
 *** the point is that I'm not an expert, but I'm also not a beginner
 ** Why is it worth talking about?
 *** The Nix store has many useful implications
@@ -53,7 +60,7 @@ online.
 **** reproducibility
 *** builds upon existing Unix technologies
 **** the default env is classic C dev env 
-* Nix Store, the best part
+* Nix Store, the good
 ** the data structure
 *** derivations: the outputs of the FP package system
 *** derivations can refer to other derivations in a DAG
@@ -65,7 +72,7 @@ online.
 **** caching
      the store is effectively a cache already
 **** reproducability
-     if it works on your machine, it'll work for all machines
+     no more missing or wrong-versioned depedency errors, just the other kinds
 **** content-addressability
      why binary distribution works well in Nix
 *** System Mgmt
@@ -74,12 +81,24 @@ online.
 *** configuration management
 **** any program and uses files for configuration can be configured with Nix
      any file can be in the Store
-* Nix Lang, the worst part
+* Nix Lang, the bad
 ** TODO nix-repl :session in src-blocks??
 ** basic description
-*** Haskell and JSON had a baby, but can't agree on parenting styles
-*** lazy-evaluated purely functional DSL for building packages
 
+*** the common term for a program in this language is a "Nix Expression" or "nixexpr"
+    I'll be using the "nixexpr" term for the remainder of the talk
+
+*** Haskell and JSON had a baby, but can't agree on parenting styles
+*** basic properties:
+**** strongly, dynamically-typed
+     type errors are at runtime
+**** everything is an expression
+**** lazy-evaluated
+     value computation is often deferred
+**** purely functional
+     no side-effects, only inputs and outputs
+**** domain-specific
+     nixexprs are ultimately for building derivations 
 ** syntax & semantics AKA haskell vs Javascript/JSON
    https://nixos.org/nix/manual/#ch-expression-language
    
@@ -102,14 +121,12 @@ online.
 **** semi-colons delimit expressions ( sometimes ) (JS)
      Use in repl is completely unnecessary 
 **** whitespace is not significant, except for indented strings (???)
-*** General semantics
-**** everything is an expression
-**** result of eval is ultimately derivations
-**** lazy eval
+     COMPLAINT: I don't know why, but the default indentation settings for
+     =nix-mode= for my install of spacemacs is horrible. May be a source of bias
 *** Values
 **** Simple Values
 ***** Strings
-****** two ways to quote
+****** three kinds
 ******* "" (same as Haskell and JSON)
         #+begin_src nix
           version = "3.2.1";
@@ -124,6 +141,7 @@ online.
             '';
         #+end_src
 
+******* unquoted URIs
 ****** ${} (antiquotation)
        #+begin_src nix
          name = "pop-culture-reference";
@@ -223,13 +241,14 @@ online.
 **** inside of sets
 **** not inside lists
 
-** other langs / transpilers
+** Do we have other options? Sorta
 *** guix
     
 **** reimplimentation of nix
 
-**** nix lang is replaced with Guile Scheme
-**** GuixSD is only Gnu approved software
+**** nix lang is replaced with Guile Scheme: Great! Lisp!
+**** GuixSD is only Gnu approved software: Ummmmmm...
+     If you hate systemd with a passion, this might be for you!
 *** expresso
 **** new project
 **** specifically designed with Nix in mind
@@ -248,7 +267,7 @@ online.
 *** surprise, it's JSON
 *** TODO Write the type out in Dhall??
 
-* Nix build system
+* Nix build system, the useful
   tooling that evaluates/imports nixexprs, creates store-to-fs mapping
 ** segue: let's build the nixexpr!
 *** result, user profiles
