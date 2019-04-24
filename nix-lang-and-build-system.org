@@ -1,4 +1,12 @@
-#+TITLE: Nix build system
+#+TITLE: Nix: The Good, The Bad, and the Useful
+
+In this talk, Sam will discuss Nix, the functional package manager. He will
+focus on the store (the good), the language (the bad), and how the tool and the
+greater Nix ecosystem can be leveraged to solve problems with polyglot systems
+(the useful).
+
+If you cannot be there in person, this talk will be recorded and available
+online.
 
 * Introduction
 ** Why Polyglots is so great
@@ -11,53 +19,355 @@
 *** exposure to a new tool/technique
 *** maybe it will useful to you today?
 * Overview
+** TODO the version of Nix for this talk
 ** What is Nix?
+**** "niks" word history
+     #+begin_quote
+     The name Nix is derived from the Dutch word /niks/, meaning /nothing/;
+     build actions do not see anything that has not been explicitly declared as
+     an input
+     -- Nix: A Safe and Policy-Free System for Software Deployment, footnote 1
+     #+end_quote
 **** an FP package manager
 ***** packages are the immutable outputs of pure functions
 ***** packages are stored, with their deps included, in the Nix store
-***** packages and their dependencies are crypographically hashed
+****** Nix store is a crypographic hashtable of derivations
 **** domain-specific programming language for specifing those package functions
 **** a whole ecosystem, including an operating system, a devops tool, and much more
 **** OPINION: a breath of fresh air for building, configuring, and packaging software
 ** What it isn't
 **** well documented
+***** the Store part of my talk is completely new material, AFAIK
 **** a good DSL
 ***** We're going to get into it, promise
 **** perfect (hey, fresh air has bad smells too)
+** How long have I used it?
+*** off and on for about 3 years
+*** only seriously started using it for less than a year
+*** the point is that I'm not an expert, but I'm also not a beginner
 ** Why is it worth talking about?
-**** dependencies are always included in your package, so if it works on your machine, it works on all machines
+*** The Nix store has many useful implications
 **** rollbacks are a breeze
 ***** story about networking woes on my laptop
+**** both source and binary distribution are handled well
+**** reproducibility
+*** builds upon existing Unix technologies
+**** the default env is classic C dev env 
 * Nix Store, the best part
-** more than caching
-*** content-addressability
-*** reproducability
-** creates a path to artifact mapping with symlinks
-*** works with existing UNIX paradigm and tech
-**** config files can be linked too, so much config can be managed by Nix also
-*** installing and updating a package is as simple as changing symlinks
+** the data structure
+*** derivations: the outputs of the FP package system
+*** derivations can refer to other derivations in a DAG
+*** that DAG is flattened into a hashtable
+*** that table is the Nix store
+** Implications
+*** Package Mgmt
+**** sandboxing down to the (linux) kernel without containers
+**** caching
+     the store is effectively a cache already
+**** reproducability
+     if it works on your machine, it'll work for all machines
+**** content-addressability
+     why binary distribution works well in Nix
+*** System Mgmt
+**** installs and rollbacks are atomic
+     because previous packages are cached, you can roll back to an old one
+*** configuration management
+**** any program and uses files for configuration can be configured with Nix
+     any file can be in the Store
 * Nix Lang, the worst part
+** TODO nix-repl :session in src-blocks??
 ** basic description
 *** Haskell and JSON had a baby, but can't agree on parenting styles
-** syntax
-** semantics
+*** lazy-evaluated purely functional DSL for building packages
+
+** syntax & semantics AKA haskell vs Javascript/JSON
+   https://nixos.org/nix/manual/#ch-expression-language
+   
+*** grammatical structures
+
+**** bindings are ===
+     #+begin_src nix
+       foo = bar
+     #+end_src
+
+**** comments are =#= for one line comments, =/* ... */= for multiline, ala JS
+
+***** TODO why doesn't JSON have comments??
+     #+begin_src nix
+       /* REPORTER: Hey, JSON, can you speak to why developers are upset with you? */
+
+       # JSON: No comments
+     #+end_src
+
+**** semi-colons delimit expressions ( sometimes ) (JS)
+     Use in repl is completely unnecessary 
+**** whitespace is not significant, except for indented strings (???)
+*** General semantics
+**** everything is an expression
+**** result of eval is ultimately derivations
+**** lazy eval
+*** Values
+**** Simple Values
+***** Strings
+****** two ways to quote
+******* "" (same as Haskell and JSON)
+        #+begin_src nix
+          version = "3.2.1";
+        #+end_src
+******* '' '' (indented)
+        #+begin_src nix
+          postInstall =
+            ''
+              mkdir $out/bin $out/etc
+              cp foo $out/bin
+              echo "Hello World" > $out/etc/foo.conf
+            '';
+        #+end_src
+
+****** ${} (antiquotation)
+       #+begin_src nix
+         name = "pop-culture-reference";
+         version = "${name}-1997";
+         copyright =
+           ''
+             Version: ${version}
+           '';
+       #+end_src
+
+***** Numbers
+      same as Haskell and JSON
+****** ints
+****** floating point
+***** Paths
+****** / style
+       similar to Unix paths. A slash is required.
+       #+begin_src nix
+       customPackage = import ./custom.nix;
+       #+end_src
+******* Converting strings to paths... WHY????
+        #+begin_src nix
+        path = /. + "hello";
+        #+end_src
+
+****** <> style (NIX_PATH is searched)
+       #+begin_src nix
+       let pkgs = import <nixpkgs> {};
+           config = import <nixpkgs/modules> {};
+       #+end_src
+       This assumes a file called =default.nix= to be in the directory
+***** Booleans: =true=, =false=
+***** Null is =null=
+      aside: is not antiquotable
+**** Lists
+***** heterogenous
+***** no commas needed
+***** lazy in values, strict in length
+      no infinite lists for you!
+**** Sets (the most important type!)
+***** a collection of attributes
+***** wrapped in curly-braces
+***** access members with =.= syntax
+***** keys are either unquoted, or double-quoted
+***** if key is =null= attr is dropped from set
+***** if set has =__functor= it becomes callable (very Python-esque)
+      Because this is Python-esque, and it sounds funny, I'm calling this
+      "dunder functor"
+***** set theory operations
+**** TODO compare with other language specifications
+
+*** Language Contructs
+    
+**** Recursive sets
+**** let-expressions (Haskell)
+     lexical scoping
+**** inheriting attrs
+**** functions
+***** curried
+***** partial application
+***** two styles for args: lambda and set
+****** lambda arg style
+       
+******* common for classic FP patterns and overrides
+
+****** set arg style
+
+******* THE ONLY TIME COMMAS ARE USED
+        WHY ON GODEL'S GREEN EARTH ARE THERE COMMAS HERE?!??!?!?
+        [Terry Crews saying why dot gif]
+
+******* fixed arity OR variadic with =...=
+
+******* allows for default values
+        
+******** documentation on =?= is misleading?
+
+**** conditionals =if then else=
+
+**** assertions
+     
+***** =assert e1; e2=
+
+***** =e1 -> e2=
+**** with expressions
+     dynamic scoping, which I've read on the internet are bad, or good for you
+     #+begin_src nix
+     with builtins; map blah [blahs]
+     #+end_src
 ** ergonomics
+*** nice: all the ecosystem runs on the lang
+**** counterpoint: everything runs on JSON or YAML, so what
+*** semicolons are not consistent
+**** TODO because of assignment??
+**** inside of let and with
+**** not outside toplevel expressions
+**** inside of sets
+**** not inside lists
+
 ** other langs / transpilers
 *** guix
+    
+**** reimplimentation of nix
+
+**** nix lang is replaced with Guile Scheme
+**** GuixSD is only Gnu approved software
 *** expresso
-*** dhall2nix
+**** new project
+**** specifically designed with Nix in mind
+
+*** dhall
+**** total language
+**** compiles to Nix
+**** personally, this is the most interesting to learn
+
 *** {cabal,yarn,composer,...}2nix
+    
+**** reuse existing specifications to create nixexprs
+
+**** is it proof that a language stinks when you compile to it?
 ** The derivative file format
+*** surprise, it's JSON
+*** TODO Write the type out in Dhall??
+
 * Nix build system
-** segue: let's use the lang to write a complete nixexpr
+  tooling that evaluates/imports nixexprs, creates store-to-fs mapping
+** segue: let's build the nixexpr!
+*** result, user profiles
+    user profile is like appending something to =$PATH=
 ** the build system a bit more in depth
-** let's build the nixexpr!
+*** creates a path to artifact mapping with symlinks
+**** rollbacks
+**** config mgmt
+**** all the other implications from earlier
+
+*** garbage collection
+    preventing your whole disk from becoming the Nix store
+*** nixpkgs
+    mentioning this in brief for time, this is a whole 'nother part of the ecosystem
+
+**** github project for main repo
+     
+***** inclusion into nixpkgs is done via Issues and PRs
+***** search and discovery are not great
+
+      the most efficient search is via the =nix= search tool, and discovery is
+      from browsing the src directories
+
+**** PPAs and similar can be added if narinfo file exists
+     home-manager example
+
+**** I miss AUR sometimes
+     If Dhall was used as main config lang, then pkgs could be hosted on IPFS
+     and provide a similar env
+
 ** looking at the drv in depth
-* the ecosystem that builds on this, v briefly
-**** the best desktop OS
-***** I suppliment my package management with AppImage and Flatpak
+** room for shebangs?
+
+* the ecosystem that builds on this, IF time allows
+
+*** official parts
+**** NixOS
+***** not the best desktop os, I suppliment my package management with AppImage and Flatpak
+**** NixOps
+**** Disnix
+**** Hydra
+*** beyond
+**** home-manager
+**** lorri
+
 * Conclusions
 ** lang sux
 ** build system rox
 ** store slaps
 ** maybe this tool can help you today
+
+* Research                                                         :noexport:
+** https://www.youtube.com/watch?v=D5Gq2wkRXpU
+   
+*** this covers the whole ecosystem, 1:23 duration
+
+*** audience interaction
+*** Intro to Nix
+**** the big idea: FP has taught the world that global mutable state is bad, mkay?
+**** problems with current state of affairs
+***** in-place mutation (pkg installs) cannot be undone, hard to trace, etc...
+***** dependencies (diamond inheritance problem)
+***** unintended breakages
+***** not composable
+***** Ansible et al can drift
+***** testing/QA is difficult for packaging
+**** solution: "don't do that"
+     This is not great! I'm really happy that I'm going to talk about the Nix
+     store separately.
+***** deterministic, isolated, timeless (all files are fixed at UNIX epoch)
+***** no globals / immutable env
+***** dependencies are only accessible via content-address
+***** nix user profile
+***** diamond problem
+      I'd argue that the diamond problem does come up, it's a compilation error
+***** nix has sandboxing all the down to the kernel
+**** implications
+***** dependencies are completely separated
+***** declarative defs are idempotent, easily version controlled
+***** changes/upgrades are non-destructive, atomic
+***** always rolled back (generations)
+**** aside: garbage collector
+**** example
+***** no windows!
+***** works along-side other package managers
+***** nix-shell explaination fumble
+***** graphiz of git deps
+**** nixpkgs
+***** channels
+***** https://howoldis.herokuapp.com
+***** looking at github repo
+**** nix lang
+***** strongly, dynamically typed
+***** lazy evaluation
+***** immutable, pure FP
+***** types
+****** numbers (no floating point)
+****** bools
+****** strings
+******* special multiline
+******* interpolation
+****** hetero lists
+****** sets
+******* . accessor
+****** control
+******* if/then/else expressions
+******* =let ... in= lexical scoping
+******* imports
+******* =with= dynamic scoping
+******* =x: x= function def, with currying and partial application
+******* ={ x, y, z }: x + y + z= preferred syntax
+**** let's build hello world
+***** lots of stuff about working with haskell pkgs
+***** example is a bash script that echo's hello world
+***** more haskell examples
+***** bad override example!!!!
+      ugh, so much hand-waving
+**** NixOps taster
+*** this did not cover the whole ecosystem
+** https://pdfs.semanticscholar.org/ac40/f3ace70c447ceb3415228899eb240892af79.pdf?_ga=2.94060181.929323198.1555963281-357808856.1555963281
+*** footnote 1 quote
+
