@@ -1,79 +1,79 @@
 #+TITLE: Nix: The Good, The Bad, and the Useful
 
-In this talk, Sam will discuss Nix, the functional package manager. He will
-focus on the store (the good), the language (the bad), and how the tool and the
-greater Nix ecosystem can be leveraged to solve problems with polyglot systems
-(the useful).
+#+OPTIONS: toc:1
+#+REVEAL_HLEVEL: 2
+#+REVEAL_PLUGINS: (highlight notes)
 
-If you cannot be there in person, this talk will be recorded and available
-online.
+#+MACRO: lambda  $$ (\lambda s.\!p)(s) $$ 
+
+* Meetup Blurb                                                     :noexport:
+  In this talk, Sam will discuss Nix, the functional package manager. He will
+  focus on the store (the good), the language (the bad), and how the tool and the
+  greater Nix ecosystem can be leveraged to solve problems with polyglot systems
+  (the useful).
+
+  If you cannot be there in person, this talk will be recorded and available
+  online.
 
 * Introduction
-** Why Polyglots is so great
-*** the conversations I've been in or listened to
-**** talking shop
-**** the outlier technologies
-**** new ideas
-*** I hope that I can contribute to the conversation side
-** What I hope you get out of this
-*** exposure to a new tool/technique
-*** maybe it will useful to you today?
-* Overview
-** What is Nix?
-**** A "new" word
-     #+begin_quote
-     The name Nix is derived from the Dutch word /niks/, meaning /nothing/;
-     build actions do not see anything that has not been explicitly declared as
-     an input
-     -- Nix: A Safe and Policy-Free System for Software Deployment, footnote 1
-     #+end_quote
-**** an FP package manager
-     #+begin_src sh
-     nix --version
-     #+end_src
+  Hey y'all
+** Why I wanted to give this talk
+*** I want to enthuse and vent about a useful thing I'm using and learning about
+    I've been using it on and off for 3 years, and I haven't gotten bored yet
+*** I want to try out a different approach to introduce Nix
+    Others don't focus enough on the underlying theorhetical basis of the tech, imo
+*** I want to talk to more people about it
+    That's one of the best parts of Polyglots: our conversations
+** So, What is Nix?
+*** A "new" word
+    #+begin_quote
+    The name Nix is derived from the Dutch word _niks_, meaning _nothing_;
+    build actions do not see anything that has not been explicitly declared as
+    an input.
 
-     #+RESULTS:
-     : nix (Nix) 2.2.2
-
-***** packages are the immutable outputs of pure functions
-
-****** TODO add dot to org-babel
-      #+begin_src dot
-        digraph {
-          nix expression -> nix build;
-          nix build -> nix store;
-          }
-      #+end_src
-***** packages are stored, with their deps included, in the Nix store
-***** packages are installed via symlinks
-**** domain-specific programming language for specifing how those packages are built
-**** a whole ecosystem, including an operating system, a devops tool, and much more
-**** OPINION: a breath of fresh air for building, configuring, and packaging software
+    -- "Nix: A Safe and Policy-Free System for Software Deployment", footnote 1
+    #+end_quote
+*** an FP package manager
+**** packages are the immutable outputs of pure functions
+     {{{lambda}}}
+     - $s$ is a specification of a package
+     - $p$ is nix package
+*** FP DSL for specifing how those packages are built
+    SPOILER ALERT
+    #+ATTR_REVEAL: :frag roll-in
+    This is the part I don't like
+*** an entire ecosystem
+    - an operating system
+    - DevOps tool(s)
+    - declarative user configuration mgmt
+    - and much more
+*** MY OPINION
+    a breath of fresh air for building, configuring, and packaging software
 ** What it isn't
-**** well documented
-     The manuals are alright, but there are a lot of bad examples in the wider ecosystem
-**** a good DSL
-***** We're going to get into it, promise
-**** perfect (hey, fresh air has bad smells too)
-** How long have I used it?
-*** off and on for about 3 years
-*** only seriously started using it between 6 months to a year
-*** the point is that I'm not an expert, but I'm also not a beginner
+*** well documented
+    The manuals are alright, but there are a lot of bad examples in the wider ecosystem
+*** a good DSL
+    We're going to get into it, promise
+*** perfect 
+    hey, fresh air has bad smells too
 ** Why is it worth talking about?
-*** The Nix store has many useful implications
+*** Nix has a unique approach to package management, with many useful implications
 **** all install, upgrade, and rollback operations are atomic
-**** both source and binary distribution are handled well
-**** reproducibility
+**** helps with difficult dependency management
+**** share reproducible build envs in source and binary forms
+**** learn another DevOps system with terrible syntax /s
 *** builds upon existing Unix technologies
-**** the default env is classic C dev env 
-* Nix Store, the good  
-   I believe that the Nix store is the part that motivates learning about the
-   system entirely
-** =/usr/bin=, =/usr/local/bin=, =node_modules=, =./.stack-work=, ...
-   This is super generalized look at other package managers, the details I'm
-   looking at are for contrasting with Nix only
-*** many different directories contain the files for programs and their configuration
-**** Emacs executable is installed at =/usr/bin/emacs25= in Ubuntu (https://packages.ubuntu.com/bionic/amd64/emacs25/filelist)
+**** the default env is very close to =build-essentials= in Debian
+
+* Nix Store, the Good  
+  Motivation for learning the less good parts
+** =/usr/local/bin=, =./node_modules=, ...
+   This is a generalized look at other package managers
+
+   The details here are for contrasting with Nix only
+*** many different directories contain files for programs and configuration
+**** In Ubuntu, the Emacs executable is installed at =/usr/bin/emacs25=
+     (https://packages.ubuntu.com/bionic/amd64/emacs25/filelist)
 **** Emacs elisp packages are installed in =~/.emacs.d=
 **** Emacs config files are in =$HOME= or elsewhere
 *** when installing or upgrading a package, these directories' contents are changed
@@ -83,9 +83,18 @@ online.
 *** dependency management is a large part of what the package manager does, and when it goes wrong, your packages are broken
 
 ** =/nix/store=
+   #+name: dependencies
+   #+begin_src sh :results value file :file dependencies.png
+   nix-store -q --graph ~/.nix-profile | dot -Tpng
+   #+end_src
+
+   #+RESULTS: dependencies
+   [[file:dependencies.png]]
+
+
 *** unique directories, symlinked to expected paths
-   all packages that are built and installed via nix go into this directory
-   with their own unique path
+    all packages that are built and installed via nix go into this directory
+    with their own unique path
 **** every package has a unique directory. No updates, only additions
 **** files within the store are symlinked to the rest of your system, and that is how they are installed
 **** dependencies are symlinked within the store, so no package is stored more than once
@@ -95,7 +104,7 @@ online.
     therefore, the hashing step and the build step are one and the same
     
 **** within the package's directory, it is similar to current package archives
-     #+begin_src sh :results output verbatim
+     #+begin_src sh :results output verbatim :cache yes
      ls $(nix path-info nixpkgs.emacs)/*
      #+end_src
 
@@ -141,7 +150,7 @@ online.
 
 *** The derivative file format
 **** surprise, it's JSON
-     #+begin_src sh :results verbatim
+     #+begin_src sh :results verbatim :cache yes
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run jq
      #+end_src
 
@@ -204,8 +213,6 @@ online.
      }
      #+end_example
 
-**** TODO Write the type out in Dhall??
-
 ** Implications
     
 *** concurrent dependencies for everything
@@ -252,8 +259,12 @@ online.
 
 *** SARCASM: Haskell and JSON had a baby, but can't agree on parenting styles
 *** basic properties
+    there is no formal grammar that I could find online, so we'll just list the features
 **** strongly, dynamically typed
      type errors at runtime
+     [wait for everyone's internal screaming to die down]
+     like, either, you want a better type system, less of a type system, or you
+     don't understand what the big deal is.
 **** everything is an expression
      except for language contruct keywords, but /cest la vie/
      /la vie!/
@@ -261,12 +272,12 @@ online.
      computation is often deferred until a value is needed
 ***** if you aren't familiar with lazy eval...
       it's like logical short-circuiting in C but for _all_ values
-
 **** purely functional
      no side-effects, only inputs and outputs, and outputs are completely
-     dependent on inputs
+     dependent on inputs. Same inputs, same outputs
 **** domain-specific
-     nixexprs are ultimately for building packages
+     nixexprs are ultimately for building packages, so the design is
+     constrained on purpose.
 ** syntax & semantics AKA haskell vs Javascript/JSON
    https://nixos.org/nix/manual/#ch-expression-language
    
@@ -278,20 +289,24 @@ online.
      #+end_src
 
 **** comments are =#= for one line comments, =/* ... */= for multiline, ala JS
+***** TODO screenshot from this? https://twitter.com/TheDailyShow/status/976862147761332231
 
-***** TODO why doesn't JSON have comments??
-     #+begin_src nix
-       /* REPORTER: Hey, JSON, can you speak to why developers are upset with you? */
+      #+begin_src nix
+       /*
+         REPORTER: Hey, JSON, can you speak to why developers complain about
+                   using you as a configuration language?
+       */
 
-       # JSON: No comments
-     #+end_src
+       # JSON: I have no comments
+      #+end_src
 
 **** semi-colons delimit expressions ( sometimes ) (JS)
      It seems that you need one anytime you are binding to symbols, except in
      the repl, which throws errors for top-level bindings
 **** indentation is not significant, except for indented strings
      COMPLAINT: I don't know why, but the default indentation settings for
-     =nix-mode= for my install of spacemacs is horrible. May be a source of bias
+     =nix-mode= for my install of spacemacs is horrible. May be a source of my
+     bias against the language, I can't objectively say.
 *** Values
 **** Simple Values
 ***** Strings
@@ -322,9 +337,9 @@ online.
        #+end_src
 
 ***** Numbers
-      same as Haskell and JSON
-****** ints
-****** floating point
+      very much the same as Haskell and JSON
+****** ints: =1=, =-10000=
+****** floating point: 
 ***** Paths
 ****** / style
        similar to Unix paths. A slash is required.
@@ -333,7 +348,8 @@ online.
        #+end_src
 ******* Converting strings to paths... WHY????
         #+begin_src nix
-        path = /. + "hello";
+        absPath = /. + "/hello";
+        relPath = ./. + "/hello";
         #+end_src
 
 ****** <> style (NIX_PATH is searched)
@@ -368,36 +384,76 @@ online.
 ***** partial application
 ***** two styles for args: lambda and set
 ****** lambda arg style
+       #+begin_src nix
+       id = x: x
+       times = x: n: x * n
+       #+end_src
        
 ******* common for classic FP patterns and overrides
 
 ****** set arg style
 
+       #+begin_src nix
+       { x, y, z }: x + y + z
+       #+end_src
 ******* THE ONLY TIME COMMAS ARE USED
         WHY ON GODEL'S GREEN EARTH ARE THERE COMMAS HERE?!??!?!?
         [Terry Crews saying why dot gif]
 
-******* fixed arity OR variadic with =...=
+******* variadic with =...=
+        #+begin_src nix
+        { config, pkgs, ... }: { ... }
+        #+end_src
 
 ******* allows for default values
+        #+begin_src nix
+        { name ? "World", greeting ? "Hello" }: "${greeting}, ${name}!"
+        #+end_src
         
-******** TODO documentation on =?= is/was misleading?
-
 **** TODO compare with other language specifications
 
 *** Language Contructs
     
 **** Recursive sets
+     because sets aren't lazy enough??
+     #+begin_src nix
+     { x = y; y = 123; }.x #INVALID if y is not in scope outside of set
+     rec {
+       x = y;
+       y = 123;
+     }.x #VALID
+     #+end_src
 **** let-expressions (Haskell)
-     lexical scoping
+     lexical scoping, as in Haskell (but with semicolons!)
+     #+begin_src nix
+     let pkgs = import <nixpkgs> {};
+     in
+     { config, pkgs, ... }: { ... }
+     #+end_src
 **** inheriting attrs
+     copy vars from the surrounding lexical scope, aka propogation
+     #+begin_src nix
+     inherit x y z;
+     x = x; y = y; z = z;
+     #+end_src
+
+     #+begin_src nix
+     inherit (src-set) a b c;
+     a = src-set.a; b = src-set.b; c = src-set.c
+     #+end_src
 **** conditionals =if then else=
 
 **** assertions
-     
 ***** =assert e1; e2=
 
-***** =e1 -> e2=
+      =if e1 then e2 else abort=
+***** logical implication, =e1 -> e2=
+      =e1= /implies/ =e2=, or =!e1 || e2=
+***** used together
+      #+begin_src nix
+      { httpServer ? false }: assert httpServer -> httpd != null;
+      #+end_src
+
 **** with expressions
      dynamic scoping, which I've read on the internet are bad, or good for you
      #+begin_src nix
@@ -408,6 +464,9 @@ online.
 *** the "stdlib" from Nixpkgs
 
 **** buildtins.*
+
+***** 
+
 *** nice: all the ecosystem runs on the lang
 **** counterpoint: everything runs on JSON or YAML, so what
 *** semicolons are not consistent
@@ -441,7 +500,12 @@ online.
 
 **** is it proof that a language stinks when you compile to it?
 * Nix build system, the useful
-  tooling that evaluates/imports nixexprs, creates store-to-fs mapping
+  #+begin_src sh :exports both :cache yes
+     nix --version
+  #+end_src
+
+  #+RESULTS:
+  : nix (Nix) 2.2.2
 ** segue: let's build the nixexpr!
    
 *** nix build command(s)
@@ -464,19 +528,19 @@ online.
 ***** inclusion into nixpkgs is done via Issues and PRs
 ***** search and discovery are not great
 
-      the most efficient search is via the =nix= search tool, and discovery is
-      from browsing the src directories
+      the most efficient search and discovery is from browsing the src
+      directories
 
 **** PPAs and similar can be added if narinfo file exists
      home-manager example
 
 **** I miss AUR sometimes
      If Dhall was used as main config lang, then pkgs could be hosted on IPFS
-     and provide a similar env
 
-** crunchbang headers for sandboxing one-off scripts               :overtime:
+** crunchbang headers for sandboxing one-off scripts
 
-* the ecosystem that builds on this                                :overtime:
+* the ecosystem that builds on this                
+  Lets take a brief tour of the larger ecosystem built on this system
 
 *** official parts
 **** NixOS
