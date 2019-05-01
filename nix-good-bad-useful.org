@@ -87,7 +87,7 @@ nix repl '<nixpkgs>'
    a breath of fresh air for
    - building
    - configuring
-   - packaging
+   - packagng
    software
 ** What it isn't
 *** well documented
@@ -186,20 +186,20 @@ nix repl '<nixpkgs>'
    #+END_NOTES
    
 *** CRYPTO ALL THE THINGS!
-    Nix hashes *all* packages it builds, everytime it builds them, including
-    their depedencies
+    Nix hashes *all* packages it builds, everytime it builds them
 
     therefore,
     - the verification step and the build step are one and the same
     - changes to the package result in different hashes
     - every package has a unique ID based on its contents
+    - MITM attacks are less likely
     
 *** =/nix/store=
     all packages that are built by nix go into this directory
 
-    the directory template is =hash-name=, where hash is the hash from the build
+    YES, this breaks FHS, but we'll return to that in a few slides
 
-    because every package has a unique name, Nix can store them side-by-side
+    the directory template is =$hash-$name=, where hash is the hash from the build
 
     #+REVEAL: split
     #+begin_src sh :results value verbatim :exports both
@@ -209,81 +209,85 @@ nix repl '<nixpkgs>'
     #+RESULTS:
     : /nix/store/yb6s1k41s7sydr6q3nzmayhvbkzhydvf-curl-7.64.0-bin
 
-*** Symlinked installs
-   installs are done with symlinks from outside the store
+*** Dependencies...
+    are included within the package!
 
-   #+begin_src sh :results value verbatim :exports both
-   ls -l $(which curl)
-   #+end_src
+    #+BEGIN_NOTES
+    There's a "wrapping" mechanism for compatibility with Nix
 
-   #+RESULTS:
-   : lrwxrwxrwx 1 root root 68 Dec 31  1969 /run/current-system/sw/bin/curl -> /nix/store/nakc4z4vz69sq2jjlakp64s04qgggvja-curl-7.64.1-bin/bin/curl
+    In this case, each executable in this directory has a wrapped counterpart
+    #+END_NOTES
 
-   #+BEGIN_NOTES
-   BTW, Nix resets all timestamps, that's why the file is so old
-   #+END_NOTES
-
-*** inside one of them
-    within the package's directory, it is similar to current package archives
-    #+begin_src sh :results output verbatim :exports results
-    ls $(nix path-info nixpkgs.emacs)/*
+    #+begin_src sh :results value verbatim :exports both
+    find $(nix path-info nixpkgs.emacs) -executable -type f -not -name '*wrapped'
     #+end_src
 
     #+RESULTS:
-    #+begin_example
-    /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin:
-    ctags
-    ebrowse
-    emacs
-    emacs-26.1
-    emacsclient
-    etags
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/movemail
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/rcs2log
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/profile
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/hexl
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/emacsclient
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/ctags
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/ebrowse
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/emacs-26.1
+    : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/etags
 
-    /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/lib:
-    systemd
+    #+REVEAL: split
+    This means that dependency tracking happens during the build step
 
-    /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec:
-    emacs
+    this mitigates the broken dependency problem because each package brings their own
 
-    /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/share:
-    appdata
-    applications
-    emacs
-    icons
-    info
-    man
-    #+end_example
+*** install via symlink
+    installs are done with symlinks from outside the store
 
-    #+BEGIN_NOTES
-    the path-info command can bring up any attribute, not just current executables
-    #+END_NOTES
+    #+begin_src sh :results value verbatim :exports both
+    ls -l $(which curl)
+    #+end_src
+
+    #+RESULTS:
+    : lrwxrwxrwx 1 root root 68 Dec 31  1969 /run/current-system/sw/bin/curl -> /nix/store/nakc4z4vz69sq2jjlakp64s04qgggvja-curl-7.64.1-bin/bin/curl
+
+    Because you can symlink anywhere, we can reestablish FHS via symlinks. NixOS
+    doesn't, but you could!
+
+    BTW, Nix resets all timestamps, that's why the file is so old
+
+*** updates... also via symlink
+    because the installation of a file is just a symlink to the store...
+
+    updates are just changing the symlink of a package with a different hash
+    
+*** different versions, different paths, same store
+    Because changing a package changes the hash, each different build results in
+    a different path
+
+    The Nix store keeps paths around as long as there is a reference to them
+
+    packages are immutable; only additions, no updates, which means...
+
+    #+ATTR_REVEAL: :frag roll-in
+    ALL VERSIONS ARE CONCURRENT VERSIONS
 
 
 ** Derivations, the unit of composition
+   {{{lambda}}}
 *** derivations: the outputs of the FP package system
-**** [[https://nixos.org/nix/manual/#ssec-derivation][The description of what a derivation is]]
-     derivations are a set of particular attributes
+    [[https://nixos.org/nix/manual/#ssec-derivation][The description of what a derivation is]]
 
-*** derivations can refer to other derivations (AKA dependencies)
+*** composition
+    $$ g \circ f(x) $$
 
-**** dependency management
-     a derivation uses the dep's cryptographic hash as the reference. This is
-     similar to a Merkle DAG, but I've never seen this term in the docs
-**** composition
-     $$ g \circ f(x) $$
+    Derivations are composed with their dependencies like docker image layers or photoshop layers
 
-     Derivations are composed with their dependencies like docker image layers or photoshop layers
+    (that's where the name comes from)
 
-*** a derivation file
+*** it's a file!
     surprise!
     #+ATTR_REVEAL: :frag roll-in
     it's JSON
     #+REVEAL: split
-    #+BEGIN_NOTES
-    I'm creating a subshell that has jq in the env, running it, to pretty-print
-    the JSON of it's derivation. Are you not impressed??
-    #+END_NOTES
-     #+begin_src sh :results verbatim
+     #+begin_src sh :results value verbatim :exports both
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run jq | head -n10
      #+end_src
 
@@ -301,19 +305,94 @@ nix repl '<nixpkgs>'
            "doc": {
      #+end_example
 
+    #+BEGIN_NOTES
+    I'm creating a subshell that has jq in the env, running it, to pretty-print
+    the JSON of it's derivation. Are you not impressed??
+    #+END_NOTES
+
+     
+*** derivation keys
+    #+begin_src sh :results output :exports both
+     nix show-derivation nixpkgs.jq | nix-shell -p jq --run "jq '.[] | keys'"
+    #+end_src
+
+    #+RESULTS:
+    : [
+    :   "args",
+    :   "builder",
+    :   "env",
+    :   "inputDrvs",
+    :   "inputSrcs",
+    :   "outputs",
+    :   "platform"
+    : ]
+
+    A derivation contains all the information that Nix needs to build a package
+
+    #+REVEAL: split
+    Here is where dependency tracking happens: =inputDrvs=
+    #+begin_src sh :results output :exports both
+     nix show-derivation nixpkgs.jq | nix-shell -p jq --run "jq '.[].inputDrvs'"
+    #+end_src
+
+    #+RESULTS:
+    #+begin_example
+    {
+      "/nix/store/0si75icim8ajxcsp25d9c52m42kqg1xj-stdenv-linux.drv": [
+        "out"
+      ],
+      "/nix/store/1kircip4wskspsqqzxbmh6ss73iqh9ah-bash-4.4-p23.drv": [
+        "out"
+      ],
+      "/nix/store/4ss7qn4n2nrc0r98ly33hw7s3brvwgcb-jq-1.6.tar.gz.drv": [
+        "out"
+      ],
+      "/nix/store/9gg731fwsxxrl2qmwb17aq4w5r8s5l76-onig-6.9.1.drv": [
+        "out"
+      ]
+    }
+    #+end_example
+
+    That =stdenv-linux.drv= is the =build-essentials=-alike I mentioned earlier
+
 ** Further Implications
-    
+   If you thought your mind was blown with concurrent deps, we are just getting
+   started
 *** caching
-    the store is a binary cache for everything already, and not just for your machine
+    the store is a cache for everything already, and not just for your machine
 
-*** installs, updates, and rollbacks are atomic (both small and discrete)
-    because previous packages are still available when you build a new package,
-    you can point a symlink to an old version easily.
+    in fact, you can serve your =/nix/store= as a binary cache for *other*
+    machines
 
-    And because a symlink is
-    completely descrete (it either points to another file or it doesn't)
-    packaging actions are never in a partial state.
+*** installs, updates, and rollbacks are atomic
+    because a symlink either points to another file or it doesn't, install and
+    update actions are never in a partial state.
 
+    AND, because previous packages are still available when you build a new package,
+    a rollback is *exactly* the same as an update
+    
+*** nix env generations
+    Nix has this mechanism called /generations/ where each iteration of an
+    update to an environment is tracked by entries in the store
+
+    This means that, in a basic sense, your package actions are version
+    controlled.
+
+    #+begin_src sh :results value verbatim :exports both
+    nix-env --list-generations | tail -n5
+    #+end_src
+
+    #+RESULTS:
+    :  161   2019-04-13 20:44:17   
+    :  162   2019-04-13 21:20:19   
+    :  163   2019-04-28 14:49:06   
+    :  164   2019-04-28 14:51:55   
+    :  165   2019-04-28 17:32:00   (current)
+
+    #+REVEAL: split
+
+    And now you will hear my tale of woe... and hope
+    
     #+BEGIN_NOTES
     LAPTOP WIFI STORY
     - happened this month
@@ -326,90 +405,72 @@ nix repl '<nixpkgs>'
     - I fixed the config, tested this time, and was able to move forward without losing wifi again
     #+END_NOTES
 
-*** deduplication of depdendencies
-    if two different packages depdend upon the same hash, there will only be one
-    copy in the store, and two symlinks pointing to it downstream
-
-    #+NAME: PCRE2
+*** per-user package management
+    because each user get's their own environment with their own generations,
+    each user can manage their own packages *without sudo*
+    
     #+begin_src sh :results value verbatim :exports both
-    nix-store -q --tree ~/.nix-profile | grep pcre2 
+    ls -l ~/.nix-profile
     #+end_src
 
     #+RESULTS:
-    : |   |   |   |   |   |   +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32
-    : |   |   |   |   |   |   |   +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32 [...]
-    : |       +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32 [...]
-    : |   |   +---/nix/store/ryrjib7x67ddq5x65m1d16glay89wy06-pcre2-10.32
-    : |   |   |   +---/nix/store/ryrjib7x67ddq5x65m1d16glay89wy06-pcre2-10.32 [...]
-    : |   |   |   |   |   |   |   +---/nix/store/ryrjib7x67ddq5x65m1d16glay89wy06-pcre2-10.32 [...]
-    : |   |   |   +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32 [...]
+    : lrwxrwxrwx 1 sam users 42 Dec 13 20:06 /home/sam/.nix-profile -> /nix/var/nix/profiles/per-user/sam/profile
 
-    #+BEGIN_NOTES
-    each line is a different symlink
-    #+END_NOTES
-
-*** concurrent dependencies for everything
-    since all packages are stored concurrently, it means that many different
-    versions of the same depdendency are available to many packages.
-
-    #+CALL: PCRE2()
-
-    #+RESULTS:
-    : |   |   |   |   |   |   +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32
-    : |   |   |   |   |   |   |   +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32 [...]
-    : |       +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32 [...]
-    : |   |   +---/nix/store/ryrjib7x67ddq5x65m1d16glay89wy06-pcre2-10.32
-    : |   |   |   +---/nix/store/ryrjib7x67ddq5x65m1d16glay89wy06-pcre2-10.32 [...]
-    : |   |   |   |   |   |   |   +---/nix/store/ryrjib7x67ddq5x65m1d16glay89wy06-pcre2-10.32 [...]
-    : |   |   |   +---/nix/store/z6yc6gz2sc18xwb9vrs0hkfsibm87b4l-pcre2-10.32 [...]
-
-    #+BEGIN_NOTES
-    two derivations:
-    - z6yc6gz2...
-    - ryrjib7x...
-    #+END_NOTES
-
-*** per-user, per-project package management, without sudo
-    each user/project/whatever is itself a package, and is symlinked into your system
-    #+begin_src sh :results value verbatim :exports both
-    realpath ~/.nix-profile
+*** nix-shell
+    Nix comes with a command that can load in a set of packages on demand into a subshell
+    #+begin_src sh :results output :exports both
+    which ruby || echo "no ruby"
+    nix-shell -p ruby --run 'which ruby || echo "no ruby"'
     #+end_src
 
     #+RESULTS:
-    : /nix/store/27z4bmv650idxr4az13a88fph7d94x2z-user-environment
+    : no ruby
+    : /nix/store/rwp5fpzqssf5m9dzbgbwsfgdzw8xajra-ruby-2.5.5/bin/ruby
 
+    which means...
+    #+REVEAL: split
+    SANDBOXES FOR EVERYTHING, no containers required
+
+    Nix comes with tooling to manage this
+    
     #+begin_notes
     all you'd need is a GUI for nix-env and you'd have a beginner-safe desktop
     app store for Linux, perhaps?
     #+end_notes
 
 *** bad packages are isolated
-
 **** malicious
-
+     No Trojan horses here!
 **** poorly written 
+     I can't screw up the store due to incompetence
+
+     some mistakes become build errors instead of system crashes
 
 *** reproducability
     [[https://r13y.com][Is NixOS Reproducible?]]
 
-    This means that you can build a package, and then copy
-    over the files to a different machine, and it would be the same as if that
-    machine built the package.
+    This is no ordinary caching, it's deterministic builds
 
 *** content-addressability
     [[https://cachix.org][Cachix - Nix binary cache hosting]] 
 
-    instead of computing a hash on something you downloaded to prove its valid,
+    instead of computing a hash on a package as you build it,
     you can ask to download a valid package with the computed hash.
 
-    
-*** any program and uses files for configuration can be configured with Nix
-    [[https://github.com/rycee/home-manager][=home-manager= GitHub project]]
+*** config-file management
+    any program and uses files for configuration can be configured with Nix
 
     any file can be in the Store, and symlinks can put them wherever the
     program expects a file to be. 
 
     This is how =home-manager= works, generally speaking
+    [[https://github.com/rycee/home-manager][GitHub project]]
+
+    ..and NixOS, ofc
+
+*** possibly more??
+    I'm convinced that I've missed some, and that there are even more to be
+    thought up
 
 * Nix Lang, the bad
 ** basic description
