@@ -1,10 +1,23 @@
 #+TITLE: Nix: The Good, The Bad, and The Useful
 
-#+OPTIONS: toc:1
+#+OPTIONS: toc:nil
 #+REVEAL_HLEVEL: 2
 #+REVEAL_PLUGINS: (highlight notes)
 
 #+MACRO: lambda  $$ (\lambda s.\!p)(s) $$ 
+#+MACRO: mastodon  Mastodon: @sehqlr@mastodon.technology
+#+MACRO: slack  stl-tech.slack.com: @sehqlr
+#+MACRO: myemail talks+nix@samhatfield.me
+
+#+begin_src sh :session *nix repl* :exports none
+nix repl '<nixpkgs>'
+#+end_src
+
+#+RESULTS:
+| Welcome | to                 | Nix        | version | 2.2.2. | Type | :? | for | help. |
+| '...    |                    |            |         |        |      |    |     |       |
+| Added   | 10135              | variables. |         |        |      |    |     |       |
+| echo    | 'org_babel_sh_eoe' |            |         |        |      |    |     |       |
 
 * Meetup Blurb                                                     :noexport:
   In this talk, Sam will discuss Nix, the functional package manager. He will
@@ -15,16 +28,35 @@
   If you cannot be there in person, this talk will be recorded and available
   online.
 
-* Introduction
+* Hey Polyglots :)
 ** Why I wanted to give this talk
-*** I want to enthuse and vent about a useful thing I'm using and learning about
+*** share the feelings
+    I want to enthuse and vent about a useful thing I'm using and learning about
+
     I've been using it on and off for 3 years, and I haven't gotten bored yet
-*** I want to try out a different approach to introduce Nix
+*** new kind of intro
+    I want to try out a different approach to introduce Nix
+
     Others don't focus enough on the underlying theorhetical basis of the tech, imo
-*** I want to talk to more people about it
+*** new conversations
     That's one of the best parts of Polyglots: our conversations
 
-* So, What is Nix?
+    And you aren't able to come in on person, let's talk online!
+
+    {{{mastodon}}}
+
+    {{{slack}}}
+
+    {{{myemail}}}
+** what I'll be talking about
+   - What is Nix?
+   - Nix Store, the Good
+   - Nix Language, the Bad
+   - Nix build system, the Useful
+   - Nix ecosystem
+   - Some conversation starters
+
+* So, What *is* Nix?
 ** A "new" word
    #+begin_quote
    The name Nix is derived from the Dutch word _niks_, meaning _nothing_;
@@ -37,8 +69,10 @@
 *** packages are the immutable outputs of pure functions
     {{{lambda}}}
     - $s$ is a specification of a package
-    - $p$ is nix package
-** FP DSL for specifing those packages
+    - $p$ is the resulting package
+** FP DSL
+   for specifing those packages
+
    Writing code in this language is
    #+ATTR_REVEAL: :frag highlight-red
    SPOILER ALERT
@@ -50,47 +84,95 @@
    - declarative user configuration mgmt
    - and much more
 ** MY OPINION
-   a breath of fresh air for building, configuring, and packaging software
+   a breath of fresh air for
+   - building
+   - configuring
+   - packaging
+   software
 ** What it isn't
 *** well documented
-    The manuals are alright, but there are a lot of bad examples in the wider ecosystem
+    The manuals are alright, but there are a lot of bad examples in the wider
+    ecosystem
+**** [[https://rycee.gitlab.io/home-manager/index.html][home-manager GitHub page]]
+**** [[file:to-be-done.png][home-manager Darwin install section]] 
+
+   #+REVEAL: split
+   This isn't unique to Nix, *BUT* I wish I could recommend this as a tool, not
+   an independent study
 *** a good DSL
-    We're going to get into it, promise
+    SARCASM: Haskell and JSON had a baby, but can't agree on parenting styles
+
+    #+REVEAL: split
+    BTW, if there are any good arguments for anything I'm complaining about,
+    talk to me
+
+    Remember: opinions are like armpits. Everyone has one, and most of them stink
 *** perfect 
-    hey, fresh air has bad smells too
+    no software is perfect
+
+    I said this project was a breath of fresh air.
+
+    Well, fresh air has bad smells too
 ** Why is it worth talking about?
 *** Unique approach
     Nix has a unique approach to package management, with many useful implications
 **** all install, upgrade, and rollback operations are atomic
 **** helps with difficult dependency management
 **** share reproducible build envs in source and binary forms
-**** learn another DevOps system with terrible syntax /s
+**** sarcasm/ learn another DevOps system with terrible syntax /s
+     no but really I like it
 *** builds upon existing Unix technologies
 **** default env is close to =build-essentials= in Debian
-**** 
+**** lots of CLI tools (that are included in the slides)
+**** most CLI options are also configurable with env vars
 
 * Nix Store, the Good  
   Motivation for learning the less good parts
-** =/usr/local/bin=, =./node_modules=, ...
-   This is a generalized look at other package managers
-
-   The details here are for contrasting with Nix only
-*** many different directories contain files for programs and configuration
+** The "other" package managers
+   The details here are very generalized, and for contrasting with Nix only
+*** Filesystem Hierarchy Standard
+    many different directories contain files for programs and configuration
 **** In Ubuntu, the Emacs executable is installed at =/usr/bin/emacs25=
      [[file:ubuntu-emacs-package.png]]
      #+BEGIN_NOTES
      https://packages.ubuntu.com/bionic/amd64/emacs25/filelist
      #+END_NOTES
+   #+REVEAL: split
 **** Emacs elisp packages are installed in =~/.emacs.d=
 **** Emacs config files are in =$HOME= or elsewhere
-*** when installing or upgrading a package, these directories' contents are changed
-**** when emacs is updated, the data at
+*** in-place changes
+**** when emacs is updated, the data at =/usr/bin/emacs25= is overwritten
+**** if the update process crashes or is interrupted, it could be in partial state
+     many mechanisms prevent this, but Nix does it differently, as we shall see
 
-*** verifying a package requires crypographic hashing of that data as a separate step
-*** dependency management is a large part of what the package manager does, and when it goes wrong, your packages are broken
+*** MITM
+    In order to make sure your package hasn't been compromised on its way to you
+    by a MITM attack, you need to verify it with a cryptographic hashing process
 
-** =/nix/store=
-   how it compares to the others
+    typically, you download the hash the server has, perform the hashing on your
+    computer, then compare the two hashes to make sure they match
+
+    Some package managers do this automatically, but some don't and you have to
+    do it by hand
+*** dependency management
+    dependency management is a large part of what the package manager does, and
+    when it goes wrong, your packages are broken
+
+    When the best standard you have is =semver= and Firefox doesn't use it,
+    you've got a hard job on your hands
+*** CONCURRENT dep mgmt
+    wow, is that impossible? How do you manage this?
+
+    - =chroot=?
+    - sandboxes?
+    - DOCKER!?
+    
+    maybe this one reason is why every language has their package manager?
+    
+    ... and tools built on top? to manage concurrent versions?
+
+** Nix Does It Different
+   how it compares to "the others"
    #+name: dependencies
    #+begin_src sh :results value file :file dependencies.png :exports both
    nix-store -q --graph $(realpath $(which curl)) | dot -Tpng
@@ -102,27 +184,48 @@
    #+BEGIN_NOTES
    The image for the Emacs dep graph was too big
    #+END_NOTES
+   
+*** CRYPTO ALL THE THINGS!
+    Nix hashes *all* packages it builds, everytime it builds them, including
+    their depedencies
 
-*** unique directories, symlinked to expected paths
-    #+BEGIN_NOTES
-    EXCITE! more implications, but we'll cover them in detail later
-    #+END_NOTES
-    all packages that are built by nix go into this directory
-    with their own unique path
-
-    I think it is similar to the hashtable data structure
-
-**** every package has a unique directory. No updates, only additions
-**** installs are done with symlinks from outside the store
-     e.g. a symlink from =usr/bin= into the store
-
-*** packages, AND THEIR DEPENEDNECIES, are cryptographically hashed
-    it's how the unique paths are generated
-
-    therefore, the verification step and the build step are one and the same
+    therefore,
+    - the verification step and the build step are one and the same
+    - changes to the package result in different hashes
+    - every package has a unique ID based on its contents
     
-*** within the package's directory, it is similar to current package archives
-    #+begin_src sh :results output verbatim :exports both
+*** =/nix/store=
+    all packages that are built by nix go into this directory
+
+    the directory template is =hash-name=, where hash is the hash from the build
+
+    because every package has a unique name, Nix can store them side-by-side
+
+    #+REVEAL: split
+    #+begin_src sh :results value verbatim :exports both
+    nix path-info nixpkgs.curl
+    #+end_src
+
+    #+RESULTS:
+    : /nix/store/yb6s1k41s7sydr6q3nzmayhvbkzhydvf-curl-7.64.0-bin
+
+*** Symlinked installs
+   installs are done with symlinks from outside the store
+
+   #+begin_src sh :results value verbatim :exports both
+   ls -l $(which curl)
+   #+end_src
+
+   #+RESULTS:
+   : lrwxrwxrwx 1 root root 68 Dec 31  1969 /run/current-system/sw/bin/curl -> /nix/store/nakc4z4vz69sq2jjlakp64s04qgggvja-curl-7.64.1-bin/bin/curl
+
+   #+BEGIN_NOTES
+   BTW, Nix resets all timestamps, that's why the file is so old
+   #+END_NOTES
+
+*** inside one of them
+    within the package's directory, it is similar to current package archives
+    #+begin_src sh :results output verbatim :exports results
     ls $(nix path-info nixpkgs.emacs)/*
     #+end_src
 
@@ -158,8 +261,8 @@
 
 ** Derivations, the unit of composition
 *** derivations: the outputs of the FP package system
-**** a derivation is "a package build action" (https://nixos.org/nix/manual/#idm140737318496688)
-**** derivations are a set of particular attributes
+**** [[https://nixos.org/nix/manual/#ssec-derivation][The description of what a derivation is]]
+     derivations are a set of particular attributes
 
 *** derivations can refer to other derivations (AKA dependencies)
 
@@ -171,16 +274,20 @@
 
      Derivations are composed with their dependencies like docker image layers or photoshop layers
 
-*** The derivative file format
+*** a derivation file
     surprise!
-
+    #+ATTR_REVEAL: :frag roll-in
     it's JSON
-#+REVEAL: split
+    #+REVEAL: split
+    #+BEGIN_NOTES
+    I'm creating a subshell that has jq in the env, running it, to pretty-print
+    the JSON of it's derivation. Are you not impressed??
+    #+END_NOTES
      #+begin_src sh :results verbatim
-     nix show-derivation nixpkgs.jq | nix-shell -p jq --run jq | head -n20
+     nix show-derivation nixpkgs.jq | nix-shell -p jq --run jq | head -n10
      #+end_src
 
-     #+RESULTS[b18cc44a68d31d6b0200aa4383e15c64c44f0def]:
+     #+RESULTS:
      #+begin_example
      {
        "/nix/store/7g5n296kyk2n11bki54cwpn2n27x597z-jq-1.6.drv": {
@@ -192,16 +299,6 @@
              "path": "/nix/store/zbrd5iga16dagl99bkk8y354rxvsrpqg-jq-1.6-dev"
            },
            "doc": {
-             "path": "/nix/store/8giw8mv77w7ffshxz4zqp1g8jvm72pll-jq-1.6-doc"
-           },
-           "lib": {
-             "path": "/nix/store/037vrq9isc1c448mgcdps6f1sfr5kh1h-jq-1.6-lib"
-           },
-           "man": {
-             "path": "/nix/store/77fdbfnikf41yz6gh5vn259205jj1bdh-jq-1.6-man"
-           },
-           "out": {
-             "path": "/nix/store/p5pqvlg2akbk6dfl95spcpzaahj0vy2z-jq-1.6"
      #+end_example
 
 ** Further Implications
@@ -300,16 +397,19 @@
     machine built the package.
 
 *** content-addressability
+    [[https://cachix.org][Cachix - Nix binary cache hosting]] 
+
     instead of computing a hash on something you downloaded to prove its valid,
     you can ask to download a valid package with the computed hash.
 
-    [[https://cachix.org][Cachix - Nix binary cache hosting]] 
     
 *** any program and uses files for configuration can be configured with Nix
+    [[https://github.com/rycee/home-manager][=home-manager= GitHub project]]
+
     any file can be in the Store, and symlinks can put them wherever the
     program expects a file to be. 
 
-    This is how =home-manager= works
+    This is how =home-manager= works, generally speaking
 
 * Nix Lang, the bad
 ** basic description
@@ -319,11 +419,6 @@
 
     I'll be using the "nixexpr" term for the remainder of the talk
 
-*** SARCASM: Haskell and JSON had a baby, but can't agree on parenting styles
-    BTW, if there are any good arguments for anything I'm complaining about,
-    talk to me
-
-    Remember: opinions are like armpits. Everyone has one, and most of them stink
 *** no specifying document that I could find
     - no formal grammar
     - no language specification
@@ -356,6 +451,60 @@
    #+begin_notes
    we'll go over value types and grammatical structures in parallel
    #+end_notes
+** The unsurprising stuff
+   These parts of the language very much look like either Haskell or
+   Javascript/JSON, so I'm going to group them at the beginning, and get to the
+   surprising stuff later
+   
+*** Numbers
+**** ints: =-10000=
+**** floating point: =123.5467e9=
+**** operators: =+ * < >= =====
+
+     Haskellers, you _won't_ be doing this:
+     #+begin_src sh :session *nix repl* :results value verbatim
+     map (+1) [1 1 1 1]
+     #+end_src
+
+     #+RESULTS:
+     : error: syntax error, unexpected '+', at (string):1:6
+     : echo 'org_babel_sh_eoe'
+
+     #+BEGIN_NOTES
+     Basic arithmetic, inequalities, and equality are the only math operations
+     you will be performing in a nixexpr. You cannot pass operators as function
+     values, you have to use the prefix function version, of which there are only
+     add and multiply. This is a DSL dammit
+
+     ALSO I'm using an org-babel session to evaluation the nix code since
+     spacemacs doesn't have a nix repl feature that I'm aware of, so I guess the
+     echo part is with us for the remainder of this trip
+     #+END_NOTES
+
+*** Booleans
+**** literals: =true=, =false=
+
+**** operators: =!== ==== =->=
+     The arrow is logical implication, =!x || y=
+     #+begin_src sh :session *nix repl* :results value verbatim
+     true -> 1 < 3
+     #+end_src
+
+     #+RESULTS:
+     : true
+     : echo 'org_babel_sh_eoe'
+
+*** =null=
+    Also, =:t= is a REPL command that prints out the type of an expression, like
+    in GHCi
+    #+begin_src sh :session *nix repl* :results value verbatim
+    :t null
+    #+end_src
+
+    #+RESULTS:
+    : null
+    : echo 'org_babel_sh_eoe'
+
 ** three kinds of strings
 *** "" (double quotes)
     #+begin_src nix
@@ -369,6 +518,17 @@
 
     AND if you use it where expected in the REPL it complains
     #+end_notes
+
+    #+REVEAL: split
+    ALSO ALSO, there's no description of how variables work exactly in Nixexprs
+
+    I looked everywhere (in the documentation)
+
+    #+BEGIN_NOTES
+    So far, I know you can't lead them with numerals
+
+    are you supposed to read about it in their source??
+    #+END_NOTES
 *** '' '' (indented)
     #+begin_src nix
       postInstall =
@@ -379,7 +539,7 @@
         '';
     #+end_src
 
-    This is favored for generating files, since the text is left-shifted but
+    This is used for config file templating, since the text is left-shifted but
     otherwise text alignment is preserved
 
     #+BEGIN_NOTES
@@ -392,6 +552,7 @@
     https://gitlab.com/sehqlr/talks
     #+end_src
 *** ${} (antiquotation)
+    replaces variables with their values (as long as it isn't =null=
     #+begin_src nix
       name = "my-awesome-package";
       version = "0.0.1";
@@ -412,10 +573,6 @@
       # JSON: I have no comments
      #+end_src
 
-** Numbers
-   very much the same as Haskell and JSON
-*** ints: =1=, =-10000=
-*** floating point: 
 ** Paths
 *** / style
     similar to Unix paths. A slash is required.
@@ -434,11 +591,6 @@
         config = import <nixpkgs/modules> {};
     #+end_src
     This assumes a file called =default.nix= to be in the directory
-** Booleans
-   =true=, =false=
-** Null
-   =null=
-   aside: is not antiquotable
 ** Lists
 *** square brackets, no commas
     #+begin_src nix
@@ -456,12 +608,20 @@
     Because this is Python-esque, and it sounds funny, I'm calling this a
     "dunder functor"
 *** set theory operations
+*** Recursive sets
+    because sets aren't lazy enough??
+    #+begin_src nix
+    { x = y; y = 123; }.x #INVALID if y is not in scope outside of set
+    rec {
+      x = y;
+      y = 123;
+    }.x #VALID
+    #+end_src
 ** functions
    NOTE: this was not included in the Values section in the docs even though
    this is an FP lang. Curious.
 *** whitespace is function application
-*** curried
-*** partial application
+*** currying, partial application
 *** two styles for args: lambda and set
 **** lambda arg style
      #+begin_src nix
@@ -490,33 +650,27 @@
       { name ? "World", greeting ? "Hello" }: "${greeting}, ${name}!"
       #+end_src
         
-*** TODO compare with other language specifications
-
-** Language Contructs
+** Keywords
     
-*** Recursive sets
-    because sets aren't lazy enough??
-    #+begin_src nix
-    { x = y; y = 123; }.x #INVALID if y is not in scope outside of set
-    rec {
-      x = y;
-      y = 123;
-    }.x #VALID
-    #+end_src
-*** let-expressions (Haskell)
+*** =let in=
     lexical scoping, as in Haskell (but with semicolons!)
     #+begin_src nix
     let pkgs = import <nixpkgs> {};
     in
     { config, pkgs, ... }: { ... }
     #+end_src
-*** inheriting attrs
+*** =inherit=
     copy vars from the surrounding lexical scope, aka propogation
+
+    #+REVEAL: split
+    these two statements are equivalent
     #+begin_src nix
     inherit x y z;
     x = x; y = y; z = z;
     #+end_src
 
+    #+REVEAL: split
+    these two statements are equivalent
     #+begin_src nix
     inherit (src-set) a b c;
     a = src-set.a; b = src-set.b; c = src-set.c
@@ -531,7 +685,7 @@
      =e1= /implies/ =e2=, or =!e1 || e2=
 **** used together
      #+begin_src nix
-     { httpServer ? false }: assert httpServer -> httpd != null;
+     { httpd, httpServer ? false }: assert httpServer -> httpd != null;
      #+end_src
 
 *** with expressions
@@ -556,6 +710,12 @@
 **** not inside lists
 
 * Do we have other options? Sorta
+  from least to most experimental
+** {cabal,yarn,composer,...}2nix
+    
+*** reuse existing specifications to create nixexprs
+
+*** is it proof that a language stinks when you compile to it?
 ** Guix and GuixSD
     
 *** reimplimentation of nix
@@ -563,20 +723,15 @@
 *** nix lang is replaced with Guile Scheme: Great! Lisp!
 *** GuixSD is only Gnu approved software: Ummmmmm...
     If you hate systemd with a passion, this might be for you!
-** expresso
-*** new project
-*** specifically designed with Nix in mind
-
 ** dhall
 *** total language
 *** compiles to Nix, among other things
 *** personally, this is the most interesting to learn
 
-** {cabal,yarn,composer,...}2nix
-    
-*** reuse existing specifications to create nixexprs
+** expresso
+*** new project
+*** specifically designed with Nix in mind
 
-*** is it proof that a language stinks when you compile to it?
 * Nix build system, the useful
   #+begin_src sh :exports both :cache yes
      nix --version
@@ -627,6 +782,7 @@
 *** NixOps
 *** Disnix
 *** Hydra
+
 ** beyond
 *** home-manager
 *** lorri
@@ -638,6 +794,12 @@
 ** build system rox
 ** store slaps
 ** maybe this tool can help you today
+* Contact
+  {{{mastodon}}}
+
+  {{{slack}}}
+
+  {{{myemail}}}
 
 * Research                                                         :noexport:
 ** https://www.youtube.com/watch?v=D5Gq2wkRXpU
@@ -709,4 +871,3 @@
 *** this did not cover the whole ecosystem
 ** https://pdfs.semanticscholar.org/ac40/f3ace70c447ceb3415228899eb240892af79.pdf?_ga=2.94060181.929323198.1555963281-357808856.1555963281
 *** footnote 1 quote
-
