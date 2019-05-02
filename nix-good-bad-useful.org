@@ -1,33 +1,28 @@
 #+TITLE: Nix: The Good, The Bad, and The Useful
 
-#+OPTIONS: toc:1
+#+OPTIONS: toc:nil
 #+REVEAL_HLEVEL: 2
 #+REVEAL_PLUGINS: (highlight notes)
-
-#+PROPERTY: header-args:    :cache yes :exports both    :results output
-#+PROPERTY: header-args:nix :eval no   :exports code 
-#+PROPERTY: header-args:org :cache no  :exports results :results value raw drawer replace
 
 #+MACRO: lambda  $$ (\lambda s.\!p)(s) $$ 
 #+MACRO: mastodon  Mastodon: @sehqlr@mastodon.technology
 #+MACRO: slack  stl-tech.slack.com: @sehqlr
 #+MACRO: myemail talks+nix@samhatfield.me
 
+* Preamble                                              :noexport:
 
-
-
-* Preamble
-
-** nix repl session                                                :noexport:
+** nix repl session  
    #+begin_src sh :session *nix repl* :cache no
    nix repl '<nixpkgs>'
    #+end_src
 
    #+RESULTS:
+   : 
    : Welcome to Nix version 2.2.2. Type :? for help.
    : '...
    : Added 10135 variables.
    : echo 'org_babel_sh_eoe'
+
 
 * Meetup Blurb                                                     :noexport:
   In this talk, Sam will discuss Nix, the functional package manager. He will
@@ -103,8 +98,7 @@
 *** well documented
     The manuals are alright, but there are a lot of bad examples in the wider
     ecosystem
-**** [[https://rycee.gitlab.io/home-manager/index.html][home-manager GitHub page]]
-**** [[file:to-be-done.png][home-manager Darwin install section]] 
+    [[file:to-be-done.png]] 
 
    #+REVEAL: split
    This isn't unique to Nix, *BUT* I wish I could recommend this as a tool, not
@@ -183,13 +177,9 @@
 
 ** Nix Does It Different
    how it compares to "the others"
-   #+name: dependencies
    #+begin_src sh :results value file :file dependencies.png :exports both
    nix-store -q --graph $(realpath $(which curl)) | dot -Tpng
    #+end_src
-
-   #+RESULTS: dependencies
-   [[file:dependencies.png]]
 
    #+BEGIN_NOTES
    The image for the Emacs dep graph was too big
@@ -198,13 +188,15 @@
 *** CRYPTO ALL THE THINGS!
     Nix hashes *all* packages it builds, everytime it builds them
 
-    therefore,
-    - the verification step and the build step are one and the same
-    - changes to the package result in different hashes
-    - every package has a unique ID based on its contents
-    - MITM attacks are less likely
+    the verification step and the build step are one and the same
+
+    changes to the package result in different hashes
+
+    every package has a unique ID based on its contents
+
+    MITM attacks are less likely
     
-*** =/nix/store=
+*** /nix/store
     all packages that are built by nix go into this directory
 
     YES, this breaks FHS, but we'll return to that in a few slides
@@ -212,12 +204,13 @@
     the directory template is =$hash-$name=, where hash is the hash from the build
 
     #+REVEAL: split
-    #+begin_src sh
+    #+begin_src sh :cache yes :results output :exports both
     nix path-info nixpkgs.curl
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[a0fd4c62f58d3e3553f1a942b94c2bb85df0c3e2]:
     : /nix/store/yb6s1k41s7sydr6q3nzmayhvbkzhydvf-curl-7.64.0-bin
+
 
 *** Dependencies...
     are included within the package!
@@ -228,11 +221,11 @@
     In this case, each executable in this directory has a wrapped counterpart
     #+END_NOTES
 
-    #+begin_src sh
+    #+begin_src sh :cache yes :results output :exports both
     find $(nix path-info nixpkgs.emacs) -executable -type f -not -name '*wrapped'
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[2e81d8692a842a55f2771ae87644beecc9805450]:
     : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/movemail
     : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/rcs2log
     : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/libexec/emacs/26.1/x86_64-pc-linux-gnu/profile
@@ -243,6 +236,7 @@
     : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/emacs-26.1
     : /nix/store/8j5qqfk1qnz1mjw0z72ih336dzkpkl8w-emacs-26.1/bin/etags
 
+
     #+REVEAL: split
     This means that dependency tracking happens during the build step
 
@@ -251,12 +245,13 @@
 *** install via symlink
     installs are done with symlinks from outside the store
 
-    #+begin_src sh
+    #+begin_src sh :cache yes :exports both :results output
     ls -l $(which curl)
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[012eda994d813485683ef3855f39f0bb981c3f6b]:
     : lrwxrwxrwx 1 root root 68 Dec 31  1969 /run/current-system/sw/bin/curl -> /nix/store/nakc4z4vz69sq2jjlakp64s04qgggvja-curl-7.64.1-bin/bin/curl
+
 
     Because you can symlink anywhere, we can reestablish FHS via symlinks. NixOS
     doesn't, but you could!
@@ -264,7 +259,7 @@
     BTW, Nix resets all timestamps, that's why the file is so old
 
 *** updates... also via symlink
-    because the installation of a file is just a symlink to the store...
+    because the installation of a file is just a symlink to the store
 
     updates are just changing the symlink of a package with a different hash
     
@@ -274,33 +269,26 @@
 
     The Nix store keeps paths around as long as there is a reference to them
 
-    packages are immutable; only additions, no updates, which means...
+    packages are immutable; only additions, no updates, which means
 
     #+ATTR_REVEAL: :frag roll-in
     ALL VERSIONS ARE CONCURRENT VERSIONS
 
-** Derivations, the unit of composition
+** Intermission: DRV
    {{{lambda}}}
-*** derivations: the outputs of the FP package system
-    [[https://nixos.org/nix/manual/#ssec-derivation][The description of what a derivation is]]
 
-*** composition
-    $$ g \circ f(x) $$
-
-    Derivations are composed with their dependencies like docker image layers or photoshop layers
-
-    (that's where the name comes from)
+   derivations: the unit of composition in nix
 
 *** it's a file!
     surprise!
     #+ATTR_REVEAL: :frag roll-in
     it's JSON
     #+REVEAL: split
-     #+begin_src sh
+     #+begin_src sh :cache yes :results output :exports both
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run jq | head -n10
      #+end_src
 
-     #+RESULTS:
+     #+RESULTS[3988edb7db005fefa02ba7cae57fd63e085cedb2]:
      #+begin_example
      {
        "/nix/store/7g5n296kyk2n11bki54cwpn2n27x597z-jq-1.6.drv": {
@@ -314,18 +302,18 @@
            "doc": {
      #+end_example
 
+
     #+BEGIN_NOTES
     I'm creating a subshell that has jq in the env, running it, to pretty-print
     the JSON of it's derivation. Are you not impressed??
     #+END_NOTES
 
-     
 *** derivation keys
-    #+begin_src sh
+    #+begin_src sh :cache yes :results output :exports both
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run "jq '.[] | keys'"
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[56af2c3d7a38ecc1a1c93c0bb6162349f8f92ef1]:
     : [
     :   "args",
     :   "builder",
@@ -340,11 +328,11 @@
 
     #+REVEAL: split
     Here is where dependency tracking happens: =inputDrvs=
-    #+begin_src sh
+    #+begin_src sh :cache yes :exports both :results output
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run "jq '.[].inputDrvs'"
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[6b9a0b80a19f89ee717755b0d23bc037c47f07d1]:
     #+begin_example
     {
       "/nix/store/0si75icim8ajxcsp25d9c52m42kqg1xj-stdenv-linux.drv": [
@@ -362,7 +350,10 @@
     }
     #+end_example
 
+
+    #+BEGIN_NOTES
     That =stdenv-linux.drv= is the =build-essentials=-alike I mentioned earlier
+    #+END_NOTES
 
 ** Further Implications
    If you thought your mind was blown with concurrent deps, we are just getting
@@ -387,16 +378,17 @@
     This means that, in a basic sense, your package actions are version
     controlled.
 
-    #+begin_src sh
+    #+begin_src sh :cache yes :results output :exports both
     nix-env --list-generations | tail -n5
     #+end_src
 
-    #+RESULTS:
-    :  161   2019-04-13 20:44:17   
-    :  162   2019-04-13 21:20:19   
+    #+RESULTS[82a82d80621c3024afbcbfc12cc253b1de21d013]:
     :  163   2019-04-28 14:49:06   
     :  164   2019-04-28 14:51:55   
-    :  165   2019-04-28 17:32:00   (current)
+    :  165   2019-04-28 17:32:00   
+    :  166   2019-05-02 12:18:02   
+    :  167   2019-05-02 15:04:45   (current)
+
 
     #+REVEAL: split
 
@@ -418,34 +410,33 @@
     because each user get's their own environment with their own generations,
     each user can manage their own packages *without sudo*
     
-    #+begin_src sh
+    #+begin_src sh :cache yes :results output :exports both
     ls -l ~/.nix-profile
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[5e46fed652524af1762817860d845f037b1c1344]:
     : lrwxrwxrwx 1 sam users 42 Dec 13 20:06 /home/sam/.nix-profile -> /nix/var/nix/profiles/per-user/sam/profile
+
 
 *** nix-shell
     Nix comes with a command that can load in a set of packages on demand into a subshell
-    #+begin_src sh
+    #+begin_src sh :cache yes :results output :exports both
     which ruby || echo "no ruby"
     nix-shell -p ruby --run 'which ruby || echo "no ruby"'
     #+end_src
 
-    #+RESULTS:
+    #+RESULTS[c927d0a65b73ff2dacc9cfeb6a1cedf068fd597d]:
     : no ruby
     : /nix/store/rwp5fpzqssf5m9dzbgbwsfgdzw8xajra-ruby-2.5.5/bin/ruby
+
 
     which means...
     #+REVEAL: split
     SANDBOXES FOR EVERYTHING, no containers required
 
-    Nix comes with tooling to manage this
-    
-    #+begin_notes
-    all you'd need is a GUI for nix-env and you'd have a beginner-safe desktop
-    app store for Linux, perhaps?
-    #+end_notes
+    Nix comes with tooling to manage this, specifically =nix-shell=
+
+    more on that later
 
 *** bad packages are isolated
 **** malicious
@@ -472,10 +463,7 @@
     any file can be in the Store, and symlinks can put them wherever the
     program expects a file to be. 
 
-    This is how =home-manager= works, generally speaking
-    [[https://github.com/rycee/home-manager][GitHub project]]
-
-    ..and NixOS, ofc
+    This is how NixOS and home-manager work
 
 *** possibly more??
     I'm convinced that I've missed some, and that there are even more to be
@@ -499,10 +487,14 @@
     - no formal grammar
     - no language specification
 
-    Most of the research in this part is based on [[https://nixos.org/nix/manual/#ch-expression-language][the manual's Expression Language chapter]]
+    Most of the research in this part is based on [[https://nixos.org/nix/manual/#ch-expression-language][the manual]].
+
+    This does not include the functions that are in =nixpkgs=
+
+    which could be considered a stdlib for the lang
 *** dynamically typed
-    types are checked at runtime, sometimes coercion occurs
-    #+begin_src sh :results output :session *nix repl* :cache no
+    types are checked at runtime
+    #+begin_src sh :results output :session *nix repl* :cache no :exports both
     1 + 1
     "a" + 1
     #+end_src
@@ -512,9 +504,8 @@
     : 2
     : "a" + 1
     : error: cannot coerce an integer to a string, at (string):1:1
-    : "${1}"
-    : error: cannot coerce an integer to a string, at (string):1:2
     : echo 'org_babel_sh_eoe'
+
 
      #+BEGIN_NOTES
      I'm using an org-babel session to evaluation the nix code since
@@ -537,6 +528,7 @@
     nixexprs are ultimately for building packages, so the design is
     constrained on purpose.
 
+    
 ** The unsurprising stuff
    These parts of the language very much look like either Haskell or
    Javascript, so I'm going to group them at the beginning, and get to the
@@ -552,92 +544,99 @@
 *** Numbers
 **** ints: =-10000=
 **** floating point: =123.5467e9=
-**** operations:
-***** arithmetic has an operator and function each
-      - =+= =add=
-      - =-= =sub= (also negation)
-      - =*= =mul=
+*** numerical operations
+**** arithmetic has an operator and function each
+     - =+=; =add=
+     - =-=; =sub= (also negation)
+     - =*=; =mul=
+     - =/=; =div= (=/= is overloaded for paths too)
+   #+REVEAL: split
+**** comparisons
+     - =<=; =lessThan=
+     - =<==, =>=, ==>=;  no function counterparts
+**** equality operators (also for booleans)
+     - ==== equality 
+     - =!== inequality
+     - no function counterparts for these
+   #+REVEAL: split
+    #+begin_src sh :session *nix repl* :results output :cache no :exports both
+    1 + 2 - 3 * 4 / 5.0
+    map (builtins.mul 1.0e4) [1 2 3 4]
+    #+end_src
 
-      - =/= =div= (=/= is overloaded for paths too)
-***** comparisons
-      - =<= =lessThan=
-      - =<==, =>=, =>= (no function counterpart)
-***** equality operators (also for booleans)
-      - ==== equality 
-      - =!== inequality
-      - no function counterparts for these
+    #+RESULTS:
+    : 1 + 2 - 3 * 4 / 5.0
+    : 0.6
+    : map (builtins.mul 1.0e4) [1 2 3 4]
+    : [ 10000 20000 30000 40000 ]
+    : echo 'org_babel_sh_eoe'
 
-     #+begin_src sh :session *nix repl* :results output :cache no
-     1 + 2 - 3 * 4 / 5.0
-     map (builtins.mul 1.0e4) [1 2 3 4]
-     #+end_src
-
-     #+RESULTS:
-     : 1 + 2 - 3 * 4 / 5.0
-     : 0.6
-     : map (builtins.mul 1.0e4) [1 2 3 4]
-     : [ 10000 20000 30000 40000 ]
-     : echo 'org_babel_sh_eoe'
 
 *** Booleans
 **** literals: =true=, =false=
 **** operations
-****** equalities ==== =!==
-****** and/or =&&= =||=
+***** equalities: ====, =!==
+***** and/or: =&&=, =||=
+  
+***** logical implication =->= (=!x || y=)
+      #+begin_src sh :session *nix repl* :results output :cache no :exports both
+      true -> 1 < 3
+      #+end_src
 
-****** logical implication =->= (=!x || y=)
-       #+begin_src sh :session *nix repl* :results output :cache no
-       true -> 1 < 3
-       #+end_src
+      #+RESULTS:
+      : true
+      : echo 'org_babel_sh_eoe'
 
-       #+RESULTS:
-       : true
-       : echo 'org_babel_sh_eoe'
+*** null
+    =:t= is a REPL command that prints out the type of an expression
 
-*** =null=
-    Also, =:t= is a REPL command that prints out the type of an expression, like
-    in GHCi
-    #+begin_src sh :session *nix repl* :results output :cache no
+    #+begin_src sh :session *nix repl* :results output :cache no :exports both
     :t null
     #+end_src
 
     #+RESULTS:
     : null
     : echo 'org_babel_sh_eoe'
+
     
     The builtin function =typeOf= also does this
 
 *** Comments
     =#= for one line comments
+
     =/* ... */= for multiline
 
-**** TODO can they nest??
-
-*** =let=-expressions
+*** let-expressions
     lexical scoping
 
     You can bind many variables, and later bindings have earlier ones in scope
-    #+begin_src nix
+    #+begin_src nix :eval no
     let pkgs = import <nixpkgs> {};
         config = import <nixpkgs/nixos> {};
     in
     { config, pkgs, ... }: { ... }
     #+end_src
-*** =if then else=
-*** =abort=, =throw=
-**** src_nix{abort "Don't Panic"}
-     halts evaluation and prints ="Don't Panic"= as an error message
-**** =throw=
-*** =assert=
+*** if then else
+    no =case=, =switch=, or =elif= here
+*** abort, throw
+**** =abort= is like panic
+     This expression
+     src_nix[:eval no :exports code]{abort "Don't Panic"}
+     would halt evaluation and prints ="Don't Panic"= as an error message
+**** =throw= does exactly the same thing except it is ignored sometimes
+     like =nix-env -qa=
+
+     don't worry, it's magic to me too
+*** assert
 **** =assert x; y=
      the semicolon in the args list is supposed to mean that evaluation
      continues to the next statement, not that it takes two args
 **** used together with =->=
-     src_nix{ { httpd, httpServer ? false }: assert httpServer -> httpd != null; }
+     src_nix[:eval no :exports code]{ { httpd, httpServer ? false }: assert httpServer -> httpd != null; }
 
-*** =with=-expressions
+*** with-expressions
     dynamic scoping
-    #+begin_src sh :session *nix repl* :results output :cache no
+    #+begin_src sh :session *nix repl* :results output :cache no :exports both
     with builtins; map (mul 2) (genList (x: x*x) 7) 
     :a builtins # :a is a repl command that brings a set's attrs into scope
     readDir (dirOf (getEnv "HOME"))
@@ -666,10 +665,11 @@
     BTW, there's no description of how variables work exactly in Nixexprs
 
     I looked everywhere (in the documentation)
+    #+REVEAL: split
 **** string literal
-     src_nix{"no tool is the best tool"}
+     src_nix[:eval no :exports code]{"no tool is the best tool"}
 **** operations
-     #+begin_src sh :session *nix repl* :cache no :results output
+     #+begin_src sh :session *nix repl* :cache no :results output :exports both
      :a builtins
      fromJSON ''{"x": [1, 2, 3], "y": null}''
      hashString "sha256" "moose and squirrel"
@@ -700,7 +700,8 @@
      #+end_example
 
 *** '' '' (indented)
-    #+begin_src nix
+    two single quotes together at each end
+    #+begin_src nix :eval no
       postInstall =
         ''
           mkdir $out/bin $out/etc
@@ -720,14 +721,15 @@
     bias against the language, I can't objectively say.
     #+END_NOTES
 *** unquoted URIs
-    src_nix{ thisTalksRepo = https://gitlab.com/sehqlr/talks; }
-** =${}=
+    src_nix[:eval no :exports code]{ thisTalksRepo = https://gitlab.com/sehqlr/talks; }
+** ${}
    antiquotation, AKA string interpolation
 
    replaces variables with their values (as long as it isn't =null=)
 
    antiquotations can include any Nix expressions, including those with antiquotation
-   src_nix{ "${if email then "noreply@${domain}" else ""}" }
+   
+   src_nix[:eval no :exports code]{ "${if email then "noreply@${domain}" else ""}" }
 
    #+REVEAL: split
    =null= cannot be antiquoted
@@ -738,7 +740,7 @@
 
 ** Version string operations
    There are more but here is a sample
-  #+begin_src sh :session *nix repl* :cache no :results output
+  #+begin_src sh :session *nix repl* :cache no :results output :exports both
   :a builtins
   compareVersions "1.2.3" "1.2.3"
   compareVersions "1.2.1" "1.2.3"
@@ -764,15 +766,17 @@
   Added 10135 variables.
   echo 'org_babel_sh_eoe'
   #+end_example
+
 ** Paths
-*** =/= style
+*** / style
 **** literals
     similar to Unix paths. A slash is required.
-    src_nix{ specialNixexpr = import ./special.nix; }
+
+    src_nix[:eval no :exports code]{ specialNixexpr = import ./special.nix; }
 
     #+REVEAL: split
 **** operations
-     #+begin_src sh :session *nix repl* :cache no :results output
+     #+begin_src sh :session *nix repl* :cache no :results output :exports both
      :a builtins
      baseNameOf /nix/store
      dirOf /nix/store
@@ -793,40 +797,37 @@
      echo 'org_babel_sh_eoe'
      #+end_example
 
+
      Why are those two not symmetrical???
      
 *** Converting strings to paths... WHY????
-    #+begin_src nix
+    #+begin_src nix :eval no
     absPath = /. + "/hello";
     relPath = ./. + "/hello";
     #+end_src
 
-*** =<>= style (NIX_PATH is searched)
-    #+begin_src nix
+*** <> style (=$NIX_PATH= is searched)
+    #+begin_src nix :eval no
     pkgs = import <nixpkgs> {};
     #+end_src
     =<nixpkgs>= in a default Nix setup is a /channel/, which is a collection of
     nixexprs in a specific directory structure, with a =default.nix= file up top
 
-    And also by default, =<nixpkgs>= refers to the [[https://github.com/NixOS/nixpkgs][the GitHub repo]] which serves
-    as a OS distribution, but also the stdlib of the Nix language
+    more on that later
 
+*** which type of path to use?
     In my mind, the way to remember is that =<>= is for "vendered" code, and =/=
     is for local code. IF there is a better way to explain this I'd love to hear
     it
 
-*** which type of path to use?
-    You'll use =<>= style when dealing with channels (vendors) and =/= style for
-    your own code
-
 ** Modularization
    
-*** =import= function
+*** import function
     takes a path to a nixexpr or a directory containing a file called
     =default.nix=, parses it, and returns it. You'll use =import= for qualified
     imports
 
-*** =imports= attribute in =nixpkgs=
+*** imports attribute in =nixpkgs=
     This is a feature in =nixpkgs=, not the language, but here's a tip:
 
     If you are composing configuration for many different packages together (in
@@ -835,11 +836,11 @@
     It will load in the config attributes into scope of your
     top-level nixexpr AND merge the sets in an unsurprising way
 
-*** =fetch*= functions
+*** fetch* functions
    builtins that download stuff from the internet
 
    This expression loads a particular version of nixpkgs with =fetchTarball= into the current scope
-   #+begin_src nix
+   #+begin_src nix :eval no
    with import (fetchTarball https://github.com/NixOS/nixpkgs-channels/archive/nixos-14.12.tar.gz) {};
    #+end_src
 
@@ -853,6 +854,7 @@
     : [ 1 2 3 4 ]
     : echo 'org_babel_sh_eoe'
 
+
 *** heterogenous
     #+begin_src sh :session *nix repl* :results output :cache no
     [ "foo" 73.1 [ "hello" "world" ] ]
@@ -861,6 +863,7 @@
     #+RESULTS:
     : [ "foo" 73.1 [ ... ] ]
     : echo 'org_babel_sh_eoe'
+
 
 *** lazy in values, strict in length
     no infinite lists for you!
@@ -871,7 +874,7 @@
      =head= =tail= =length= =sort= =any= =all= =concatLists=
      
      =++= is the concatenation operator
-
+   #+REVEAL: split
 **** =map=, =filter=, but NO =reduce=
      only =foldl'=
 
@@ -883,14 +886,12 @@
     Since this is the type that derivations inhabit, sets are the most important
     one
 *** literals
+    src_nix[:eval no :exports code]{{ name = "world"; greeting = "hello"; }}
 
-**** attributes wrapped in ={}= 
-     src_nix{{ name = "world"; greeting = "hello"; }}
-
-     this is why nixexprs look the same as JSON at a distance
+    this is why nixexprs look the same as JSON at a distance
 
 *** access attributes with =.= syntax
-    #+begin_src sh :session *nix repl* :cache no :results output
+    #+begin_src sh :session *nix repl* :cache no :results output :exports both
     let S = { x = 123; foo = "bar"; }; in S.x
     #+end_src
 
@@ -898,29 +899,33 @@
     : 123
     : echo 'org_babel_sh_eoe'
 
+
     #+REVEAL: split
     OR, return a default
-    #+begin_src sh :session *nix repl* :cache no :results output
+    #+begin_src sh :session *nix repl* :cache no :results output :exports both
     { x = 123; foo = "bar"; }.y or "default!"
     #+end_src
-    
-    This is the only time that =or= makes an appearance
 
     #+RESULTS:
     : "default!"
     : echo 'org_babel_sh_eoe'
+    
+    This is the only time that =or= makes an appearance
+
 
 *** keys are strings
     
 **** the quotation marks can be dropped most of the time
 **** because they are strings, keys can contain antiquotation
 **** if antiquote evals to =null=, attr is dropped from set
-*** if set has =__functor= it becomes callable
+*** "dunder fuctors"
+    If a set has an attribute named =__functor=, it becomes callable
+
     Because this is Python-esque, and it sounds funny, I'm calling this a
     "dunder functor"
 
     This example comes straight from the bottom of the documentation for sets
-    #+begin_src nix
+    #+begin_src nix :eval no
     let add = { __functor = self: x: x + self.x; };
         inc = add // { x = 1; };
     in inc 1 # this evaluates to 2
@@ -947,13 +952,14 @@
    If you looked carefully in that last code source, they used a set operator
    
 *** merge or =//=
-    #+begin_src sh :session *nix repl* :cache no :results output
+    #+begin_src sh :session *nix repl* :cache no :results output :exports both
     { sound = 0; dog = "good"; } // { sound = "BARK BARK"; }
     #+end_src
 
     #+RESULTS:
     : { dog = "good"; sound = "BARK BARK"; }
     : echo 'org_babel_sh_eoe'
+
     
 *** set membership test
 **** static =?=
@@ -961,7 +967,7 @@
 **** dynamic =hasAttr=
      takes an expression
      
-    #+begin_src sh :session *nix repl* :cache no :results output
+    #+begin_src sh :session *nix repl* :cache no :results output :exports both
     :a builtins
     { x = 123; dog = "good"; } ? dog
     hasAttr (head ["x"]) { x = 123; dog = "good"; }
@@ -970,7 +976,6 @@
     :r
     #+end_src
 
-    #+REVEAL: split
     #+RESULTS:
     #+begin_example
     :a builtins
@@ -989,12 +994,12 @@
     #+end_example
 
 *** return attribute from set
-**** static =.=, dynamic =getAttr=
-     just like the pair for testing membership, same for getting
+**** static =.=
+**** dynamic =getAttr=
 *** and so many more
     there are a lot, and the only reference for these is the manual, which has a
-    glossary, and that's it. And the manual covers everything, so if you are
-    just looking for docs on the language, there aren't any standalone ones
+    glossary, and that's it. And the manual only comes in one size: the whole
+    thing
 
     I mean, https://orgmode.org may have old fashioned documentation, but at
     least they have indexes, and different sized chunks that you can view it in
@@ -1003,7 +1008,7 @@
    OK, we are almost done with sets
 *** Recursive sets
     normal sets don't have internal scope?
-    #+begin_src sh :session *nix repl* :cache no :results output
+    #+begin_src sh :session *nix repl* :cache no :results output :exports both
     { x = y; y = 123; }.x
     let y = "yogurt"; in { x = y; y = 123; }.x
     rec {x = y; y = 123;}.x
@@ -1018,19 +1023,19 @@
     : 123
     : echo 'org_babel_sh_eoe'
 
-*** =inherit=
+
+*** inherit
     copy vars from the surrounding lexical scope, aka propogation
 
-    #+REVEAL: split
     these two statements are equivalent
-    #+begin_src nix
+    #+begin_src nix :eval no
     inherit x y z;
     x = x; y = y; z = z;
     #+end_src
 
     #+REVEAL: split
     these two statements are equivalent
-    #+begin_src nix
+    #+begin_src nix :eval no
     inherit (src-set) a b c;
     a = src-set.a; b = src-set.b; c = src-set.c
     #+end_src
@@ -1038,9 +1043,9 @@
    this was not included in the Values section in the docs even though this is
    an FP lang. Curious.
 *** whitespace is function application
-    src_nix{builtins.add 1 2}
+    src_nix[:eval no :exports code]{builtins.add 1 2}
 *** partial application
-    #+begin_src sh :session *nix repl* :cache no :results output
+    #+begin_src sh :session *nix repl* :cache no :results output :exports both
     :t builtins.add 1
     #+end_src
 
@@ -1048,234 +1053,326 @@
     : the partially applied built-in function 'add'
     : echo 'org_babel_sh_eoe'
 
-*** three styles for lambda literals
-**** single identifier pattern
-     If there is a single identifier in front of the colon, the function matches
-     any argument. If you nest many of these together, you get positional
-     arguments, just like in the lambda calculus
 
-     #+begin_src nix
-     id = x: x
-     times = x: n: x * n
-     #+end_src
+** three styles for lambda literals
+*** single identifier pattern
+    If there is a single identifier in front of the colon, the function matches
+    any argument. If you nest many of these together, you get positional
+    arguments, just like in the lambda calculus
 
-     I personally call these "lambda-style"
+    #+begin_src nix :eval no
+    id = x: x
+    times = x: n: x * n
+    #+end_src
 
-     common for classic FP patterns and overrides
+    I personally call these "lambda-style"
 
-**** set pattern
-     matches a set containing the listed attributes, and bind those values to
-     variables
-     #+begin_src nix
-     { x, y, z }: x + y + z
-     #+end_src
-     This lambda only allows for a set containing *exactly* those attributes
+    common for classic FP patterns and overrides
 
-     This is useful for writing functions that have a precise semantic meaning,
-     e.g. the input set represents a point in 3D space
+*** set pattern
+    matches a set containing the listed attributes, and bind those values to
+    variables
+    #+begin_src nix :eval no
+    { x, y, z }: x + y + z
+    #+end_src
+    This lambda only allows for a set containing *exactly* those attributes
+
+    This is useful for writing functions that have a precise semantic meaning,
+    e.g. the input set represents a point in 3D space
      
-     AKA the best you can do to write your own types
+    AKA the best you can do to write your own types
 
-**** variadic args with =...=
-     This form allows for any set containing *at least* those attributes
-     src_nix{ { config, pkgs, ... }: { ... } }
-     Not to be confused by the "etcetera" meaning of the ellipse used elsewhere
+*** variadic args with =...=
+    This form allows for any set containing *at least* those attributes
 
-**** default values
-     src_nix{ { name ? "World", greeting ? "Hello" }: "${greeting}, ${name}!" }
+    src_nix[:eval no :exports code]{ { config, pkgs, ... }: { ... } }
 
-     Notice our friend =?=
+    Not to be confused by the "etcetera" meaning of the ellipse used elsewhere
 
-     #+REVEAL: split
-     Notice how the semantics are the same as =or=, NOT as the set membership
-     operator =?=
+*** default values
+    src_nix[:eval no :exports code]{ { name ? "World", greeting ? "Hello" }: "${greeting}, ${name}!" }
 
-     I only fully figured this out YESTERDAY
-**** @-pattern
-     This is an extension of set patterns, mostly as a way of referring to those
-     variadic attributes
+    Notice our friend =?=
 
-     It can be written in two ways
-     #+begin_src nix
-     args@{ x, y, z, ... }: z + y + x + args.a
-     { x, y, z, ... } @ args: z + y + x + args.a
-     #+end_src
-**** the only time commas are used
-     This was an early reason why I soured on Nixlang, but then I found so many
-     other things that irked me way more,
+    #+REVEAL: split
+    Notice how the semantics are the same as =or=, NOT as the set membership
+    operator =?=
 
-     #+BEGIN_NOTES
-     LIKE THE =?= THING
-     #+END_NOTES
+    I only fully figured this out YESTERDAY
+*** @-pattern
+    This is an extension of set patterns, mostly as a way of referring to those
+    variadic attributes
 
-* Nixpkgs
+    It can be written in two ways
+    #+begin_src nix :eval no
+    args@{ x, y, z, ... }: z + y + x + args.a
+    { x, y, z, ... } @ args: z + y + x + args.a
+    #+end_src
+*** the only time commas are used
+    This was an early reason why I soured on Nixlang, but then I found so many
+    other things that irked me way more,
 
-** the "stdlib" from Nixpkgs
+    #+BEGIN_NOTES
+    LIKE THE =?= THING
+    #+END_NOTES
 
-*** buildtins.*
+* Other Options? Sorta??
+  So, on that rage crescendo, let's talk about alternatives
 
+  Can we use Nix without writing nixexprs? Sorta??
 
-** nice: all the ecosystem runs on the lang
-*** counterpoint: everything runs on JSON or YAML, so what
-* Do we have other options? Sorta
-  from least to most experimental
-** {cabal,yarn,composer,...}2nix
-    
-*** reuse existing specifications to create nixexprs
+  I give you a two imperfect examples from two of the best language families:
+  Lisp, and ML
+** Guix
+   pronounce it like "geeks"
+   
+*** BREAKING NEWS
+    They *just* released a version 1.0, /this morning/
+    http://guix.gnu.org/blog/2019/gnu-guix-1.0.0-released/
+*** reimplimentation in Guile Scheme
+    That means Lisp everywhere
 
-*** is it proof that a language stinks when you compile to it?
-** Guix and GuixSD
-    
-*** reimplimentation of nix
+    That's the dream right?
+*** Guix only packages GNU software
+**** If you are a free-software advocate or hardliner, you should try this
+**** If you _really_ hate systemd, they use GNU Shepard
+**** If you want to package other stuff, you may or may not be out of luck, idk
+*** Have not installed it :(
+    I want to try it at some point, but I might need a Lisper-pal to pair with
 
-*** nix lang is replaced with Guile Scheme: Great! Lisp!
-*** GuixSD is only Gnu approved software: Ummmmmm...
-    If you hate systemd with a passion, this might be for you!
 ** dhall
-*** total language
-*** compiles to Nix, among other things
-*** personally, this is the most interesting to learn
+   it's dhall y'all!
 
-** expresso
-*** new project
-*** specifically designed with Nix in mind
+   https://dhall-lang.org/
+
+*** "The non-repetitive alternative to YAML"
+    ...wait, how is this an alternative to Nix-lang??
+    https://github.com/dhall-lang/dhall-haskell/tree/master/dhall-nix
+
+    #+begin_quote
+    This [...] package provides a Dhall to Nix compiler. [...] This package
+    targets people who wish Nix had a type system.
+    #+end_quote
+
+    Wow, I *am* one of those people!
+    #+REVEAL: split
+    #+begin_quote
+    [...] because Dhall cannot encode many common NixPkgs/NixOS idioms [...]
+    [y]ou can use this project to embed existing Dhall code with Nix, but
+    probably not as a general-purpose Nix replacement
+    #+end_quote
+    
+    tradeoffs, amirite?
+    
+*** So, why use Dhall at all?
+    Well, for one thing, it integrates with the existing Nix system
+
+    it comes with a CLI tool for compiling
+
+    src_sh[:eval no :exports code]{nix-shell -p dhall-nix}
+
+    #+REVEAL: split
+    #+begin_src sh :results output :cache yes :exports results
+    nix-shell -p dhall-nix 2>&1 | tail -n16
+    echo
+    #+end_src
+
+    #+RESULTS[5e5f35b7ea773d1f67d4eda8cd5a0ea653d5ad0d]:
+    #+begin_example
+    [41 of 45] Compiling Nix.Thunk.Standard ( src/Nix/Thunk/Standard.hs, dist/build/Nix/Thunk/Standard.o )
+    [42 of 45] Compiling Nix.XML          ( src/Nix/XML.hs, dist/build/Nix/XML.o )
+    [43 of 45] Compiling Nix.Builtins     ( src/Nix/Builtins.hs, dist/build/Nix/Builtins.o )
+
+    src/Nix/Builtins.hs:96:51: error:
+        Module
+        ‘System.Nix.Internal.Hash’
+        does not export
+        ‘printHashBytes32’
+       |
+    96 | import           System.Nix.Internal.Hash       ( printHashBytes32 )
+       |                                                   ^^^^^^^^^^^^^^^^
+    [45 of 45] Compiling Paths_hnix       ( dist/build/autogen/Paths_hnix.hs, dist/build/Paths_hnix.o )
+    builder for '/nix/store/m9l9pwaivpzda5vl66rix9kmsxx0k41a-hnix-0.6.0.drv' failed with exit code 1
+    cannot build derivation '/nix/store/jwgwm2gmnmkv4nn95g3clc26fvgj12hy-dhall-nix-1.1.6.drv': 1 dependencies couldn't be built
+    error: build of '/nix/store/jwgwm2gmnmkv4nn95g3clc26fvgj12hy-dhall-nix-1.1.6.drv' failed
+
+    #+end_example
+
+    #+BEGIN_NOTES
+    I ran out of time to really fix this while prepping for this talk, I should
+    write a follow up on this part
+
+    FYI: it's currently marked as broken, so I was warned
+    #+END_NOTES
+*** Dhall is a total language (lifted from  [[https://github.com/dhall-lang/dhall-lang/wiki/Safety-guarantees][this wiki page on Dhall's safety guarantees]])
+    the reason why I still want to look at it as a Nix suppliment
+**** you can always type-check an expression in a finite amount of time
+**** If an expression type-checks then evaluating that expression always succeeds in a finite amount of time
+**** there are many implications that come from this
 
 * Nix build system, the useful
-  #+begin_src sh :exports both :cache yes
+  We started so high, we went so low, lets go visit the useful part of Nix, the
+  actual build system
+** what version am I using currently?
+  #+begin_src sh :exports both :cache yes :results output
      nix --version
   #+end_src
 
-  #+RESULTS:
-  : nix (Nix) 2.2.2
-** segue: let's build a nixexpr!
+
+** Let's write a nixexpr
+*** what are we building?
+    Piet is an esoteric language that takes in pixel art as input
+
+    [[file:Piet_hello_big.png]] 
+*** prefetch to get hash
+   #+NAME: hash
+   #+begin_src sh :results output verbatim :cache yes :exports both
+   nix-shell -p nix-prefetch-scripts --run "nix-prefetch-url https://www.bertnase.de/npiet/npiet-1.3e.tar.gz"
+   #+end_src
+
+   #+RESULTS[ebfda72d8d9384b6658956e0a798055c316afdf3]: hash
+   : 1i9ihbjmravid3h7wvns712axdl5xn398hk12pvzl79fs5kcf6g8
+
+*** default.nix
+   #+begin_src nix :eval no :noweb yes :tangle default.err.nix
+   { pkgs ? import <nixpkgs> {}, ... }:
+   pkgs.stdenv.mkDerivation {
+      name = "npiet-1.3e";
+      src = pkgs.fetchurl {
+        url = https://www.bertnase.de/npiet/npiet-1.3e.tar.gz;
+        sha256 = "<<hash()>>";
+      };
+   }
+         
+   #+end_src
+
+*** lets build it!
+  src_sh[:eval no :exports code]{nix build}
+  #+REVEAL: split
+  #+begin_src sh :results value verbatim :cache yes :exports results
+  nix build -f default.err.nix 2>&1
+  echo
+  #+end_src
+
+  #+RESULTS[8877723ebc94c5cb63133d1bcb8552ee0e40881a]:
+  #+begin_example
+  builder for '/nix/store/8wgwpvh5wh2v145mdfz60g9rcpybcrcy-npiet-1.3e.drv' failed with exit code 2; last 10 log lines:
+    npiet.c:2234:7: warning: variable 'pre_xpos' set but not used [-Wunused-but-set-variable]
+       int pre_xpos, pre_ypos;
+           ^~~~~~~~
+    gcc -g  -o npiet npiet.o -lm 
+    gcc -g -O2    -Wall -DHAVE_CONFIG_H   -c npiet-foogol.c
+    npiet-foogol.y:50:10: fatal error: gd.h: No such file or directory
+     #include <gd.h>
+              ^~~~~~
+    compilation terminated.
+    make: *** [Makefile:100: npiet-foogol.o] Error 1
+  error: build of '/nix/store/8wgwpvh5wh2v145mdfz60g9rcpybcrcy-npiet-1.3e.drv' failed
+
+  #+end_example
+
+*** PORQUE??
+    Turns out =gd.h= is in =libgd=, which is available on nix under =nixpkgs.gd=
+ 
+    Just to save some time, it turns out that =groff= is another dependency
    
-*** nix build command(s)
+    #+REVEAL: split
+    #+begin_src nix :eval no :noweb yes :tangle default.nix
+    { pkgs ? import <nixpkgs> {}, ... }:
+    pkgs.stdenv.mkDerivation {
+      name = "npiet-1.3e";
+      src = pkgs.fetchurl {
+        url = https://www.bertnase.de/npiet/npiet-1.3e.tar.gz;
+        sha256 = "<<hash()>>";
+      };
+      buildInputs = with pkgs; [ gd groff ];
+    }
+    #+end_src
+   
+*** will it build?
+    #+begin_src sh :exports both :results output :cache yes
+    nix-build && find result -executable -type f
+    nix-env -i -f .
+    npiet Piet_hello.png
+    #+end_src
 
-*** result, user profiles
-    user profile is like appending something to =$PATH=
-** the build system a bit more in depth
-*** creates a path to artifact mapping with symlinks
-**** rollbacks
-**** config mgmt
-**** all the other implications from earlier
+    #+RESULTS[b3272265c517e8665ed6aa8bbd4f4618ff76927d]:
+    : /nix/store/9v03fb58vvp3r7mjlzymy3m0mmsqrnqk-npiet-1.3e
+    : Hello world!
 
-*** garbage collection
-    preventing your whole disk from becoming the Nix store
+ 
+*** cleaning up 
+    I wrote this to reset the env for the slidedeck, but it also demos the
+    garbage collector
+    #+begin_src sh :exports both :results output :cache yes
+    nix-env -e -f .
+    rm result && nix-collect-garbage
+    #+end_src
 
-** nixpkgs
-   mentioning this in brief for time, this is a whole 'nother part of the ecosystem
+    #+RESULTS[70f72eeadb1032063b0a448b0d15383a0b18d50e]:
+    : 1138 store paths deleted, 919.07 MiB freed
 
-*** github project for main repo
-     
-**** inclusion into nixpkgs is done via Issues and PRs
-**** search and discovery are not great
-
-     the most efficient search and discovery is from browsing the src
-     directories
-
-*** PPAs and similar can be added if narinfo file exists
-    home-manager example
-
-*** I miss AUR sometimes
-    If Dhall was used as main config lang, then pkgs could be hosted on IPFS
-
-** crunchbang headers for sandboxing one-off scripts
 
 * The Nix Ecosystem
-  Lets take a brief tour of the larger ecosystem built on this system
+  Lets take a brief tour of the larger ecosystem, both "official" and unofficial
 
-** official parts
+** NixOS projects
+*** nixpkgs
+    the collection of nixexprs that define the software that Nix ships with
+**** github project for main repo
+**** inclusion into nixpkgs is done via Issues and PRs
+**** search and discovery are not great
+     =nix-env= and =nix search= together make a decent search tool
+
+     the most efficient discovery is from browsing the src
+     directories
 *** NixOS
-**** not the best desktop os, I suppliment my package management with AppImage and Flatpak
-*** NixOps
-*** Disnix
-*** Hydra
+    configure your whole OS in nix
 
+    base system config found in nixpkgs
+*** NixOps
+    builds on NixOS
+
+    infrastructure automation with NixOS machines
+*** cache.nixos.org
+    binary cache for public use
+*** Hydra
+    Official build farm and CI system
+
+    This populates the public cache
+*** Disnix
+    This was really hard to research, but probably a k8s analog?
 ** beyond
 *** home-manager
+    https://github.com/rycee/home-manager
 *** lorri
+    https://github.com/target/lorri
 *** cachix
+    https://cachix.org/
 *** static nix
+    https://matthewbauer.us/blog/static-nix.html
 
-* Conclusions
-** lang sux, maybe use Dhall??
-** build system rox
-** store slaps
-** maybe this tool can help you today
+* Questions for Further Conversation
+  I have questions that fit within 3 broader questions
+** Is the Nix Expression Language redeemable?
+   - is it all that bad?
+   - can it be made better?
+   - standardize DRV?
+** Is GitHub the best place for nixpkgs to live?
+   - is there a different platform that would be better?
+   - I miss AUR and PPA. Could we make distribution more decentralized?
+     #+BEGIN_NOTES
+     IPFS? Dat?
+     #+END_NOTES
+** Could we make a GUI for nix-env?
+   - an app store that works with nix binary caches
+   - what about within the enterprise?
 * Contact
+  THANK YOU
+
   {{{mastodon}}}
 
   {{{slack}}}
 
   {{{myemail}}}
 
-* Research                                                         :noexport:
-** https://www.youtube.com/watch?v=D5Gq2wkRXpU
-   
-*** this covers the whole ecosystem, 1:23 duration
-
-*** audience interaction
-*** Intro to Nix
-**** the big idea: FP has taught the world that global mutable state is bad, mkay?
-**** problems with current state of affairs
-***** in-place mutation (pkg installs) cannot be undone, hard to trace, etc...
-***** dependencies (diamond inheritance problem)
-***** unintended breakages
-***** not composable
-***** Ansible et al can drift
-***** testing/QA is difficult for packaging
-**** solution: "don't do that"
-     This is not great! I'm really happy that I'm going to talk about the Nix
-     store separately.
-***** deterministic, isolated, timeless (all files are fixed at UNIX epoch)
-***** no globals / immutable env
-***** dependencies are only accessible via content-address
-***** nix user profile
-***** diamond problem
-      I'd argue that the diamond problem does come up, it's a compilation error
-***** nix has sandboxing all the down to the kernel
-**** implications
-***** dependencies are completely separated
-***** declarative defs are idempotent, easily version controlled
-***** changes/upgrades are non-destructive, atomic
-***** always rolled back (generations)
-**** aside: garbage collector
-**** example
-***** no windows!
-***** works along-side other package managers
-***** nix-shell explaination fumble
-***** graphiz of git deps
-**** nixpkgs
-***** channels
-***** https://howoldis.herokuapp.com
-***** looking at github repo
-**** nix lang
-***** strongly, dynamically typed
-***** lazy evaluation
-***** immutable, pure FP
-***** types
-****** numbers (no floating point)
-****** bools
-****** strings
-******* special multiline
-******* interpolation
-****** hetero lists
-****** sets
-******* . accessor
-****** control
-******* if/then/else expressions
-******* =let ... in= lexical scoping
-******* imports
-******* =with= dynamic scoping
-******* =x: x= function def, with currying and partial application
-******* ={ x, y, z }: x + y + z= preferred syntax
-**** let's build hello world
-***** lots of stuff about working with haskell pkgs
-***** example is a bash script that echo's hello world
-***** more haskell examples
-***** bad override example!!!!
-      ugh, so much hand-waving
-**** NixOps taster
-*** this did not cover the whole ecosystem
-** https://pdfs.semanticscholar.org/ac40/f3ace70c447ceb3415228899eb240892af79.pdf?_ga=2.94060181.929323198.1555963281-357808856.1555963281
-*** footnote 1 quote
