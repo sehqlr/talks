@@ -1,23 +1,33 @@
 #+TITLE: Nix: The Good, The Bad, and The Useful
 
-#+OPTIONS: toc:nil
+#+OPTIONS: toc:1
 #+REVEAL_HLEVEL: 2
 #+REVEAL_PLUGINS: (highlight notes)
+
+#+PROPERTY: header-args:    :cache yes :exports both    :results output
+#+PROPERTY: header-args:nix :eval no   :exports code 
+#+PROPERTY: header-args:org :cache no  :exports results :results value raw drawer replace
 
 #+MACRO: lambda  $$ (\lambda s.\!p)(s) $$ 
 #+MACRO: mastodon  Mastodon: @sehqlr@mastodon.technology
 #+MACRO: slack  stl-tech.slack.com: @sehqlr
 #+MACRO: myemail talks+nix@samhatfield.me
 
-#+begin_src sh :session *nix repl* :exports none
-nix repl '<nixpkgs>'
-#+end_src
 
-#+RESULTS:
-| Welcome | to                 | Nix        | version | 2.2.2. | Type | :? | for | help. |
-| '...    |                    |            |         |        |      |    |     |       |
-| Added   | 10135              | variables. |         |        |      |    |     |       |
-| echo    | 'org_babel_sh_eoe' |            |         |        |      |    |     |       |
+
+
+* Preamble
+
+** nix repl session                                                :noexport:
+   #+begin_src sh :session *nix repl* :cache no
+   nix repl '<nixpkgs>'
+   #+end_src
+
+   #+RESULTS:
+   : Welcome to Nix version 2.2.2. Type :? for help.
+   : '...
+   : Added 10135 variables.
+   : echo 'org_babel_sh_eoe'
 
 * Meetup Blurb                                                     :noexport:
   In this talk, Sam will discuss Nix, the functional package manager. He will
@@ -202,7 +212,7 @@ nix repl '<nixpkgs>'
     the directory template is =$hash-$name=, where hash is the hash from the build
 
     #+REVEAL: split
-    #+begin_src sh :results value verbatim :exports both
+    #+begin_src sh
     nix path-info nixpkgs.curl
     #+end_src
 
@@ -218,7 +228,7 @@ nix repl '<nixpkgs>'
     In this case, each executable in this directory has a wrapped counterpart
     #+END_NOTES
 
-    #+begin_src sh :results value verbatim :exports both
+    #+begin_src sh
     find $(nix path-info nixpkgs.emacs) -executable -type f -not -name '*wrapped'
     #+end_src
 
@@ -241,7 +251,7 @@ nix repl '<nixpkgs>'
 *** install via symlink
     installs are done with symlinks from outside the store
 
-    #+begin_src sh :results value verbatim :exports both
+    #+begin_src sh
     ls -l $(which curl)
     #+end_src
 
@@ -269,7 +279,6 @@ nix repl '<nixpkgs>'
     #+ATTR_REVEAL: :frag roll-in
     ALL VERSIONS ARE CONCURRENT VERSIONS
 
-
 ** Derivations, the unit of composition
    {{{lambda}}}
 *** derivations: the outputs of the FP package system
@@ -287,7 +296,7 @@ nix repl '<nixpkgs>'
     #+ATTR_REVEAL: :frag roll-in
     it's JSON
     #+REVEAL: split
-     #+begin_src sh :results value verbatim :exports both
+     #+begin_src sh
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run jq | head -n10
      #+end_src
 
@@ -312,7 +321,7 @@ nix repl '<nixpkgs>'
 
      
 *** derivation keys
-    #+begin_src sh :results output :exports both
+    #+begin_src sh
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run "jq '.[] | keys'"
     #+end_src
 
@@ -331,7 +340,7 @@ nix repl '<nixpkgs>'
 
     #+REVEAL: split
     Here is where dependency tracking happens: =inputDrvs=
-    #+begin_src sh :results output :exports both
+    #+begin_src sh
      nix show-derivation nixpkgs.jq | nix-shell -p jq --run "jq '.[].inputDrvs'"
     #+end_src
 
@@ -378,7 +387,7 @@ nix repl '<nixpkgs>'
     This means that, in a basic sense, your package actions are version
     controlled.
 
-    #+begin_src sh :results value verbatim :exports both
+    #+begin_src sh
     nix-env --list-generations | tail -n5
     #+end_src
 
@@ -409,7 +418,7 @@ nix repl '<nixpkgs>'
     because each user get's their own environment with their own generations,
     each user can manage their own packages *without sudo*
     
-    #+begin_src sh :results value verbatim :exports both
+    #+begin_src sh
     ls -l ~/.nix-profile
     #+end_src
 
@@ -418,7 +427,7 @@ nix repl '<nixpkgs>'
 
 *** nix-shell
     Nix comes with a command that can load in a set of packages on demand into a subshell
-    #+begin_src sh :results output :exports both
+    #+begin_src sh
     which ruby || echo "no ruby"
     nix-shell -p ruby --run 'which ruby || echo "no ruby"'
     #+end_src
@@ -480,15 +489,38 @@ nix repl '<nixpkgs>'
 
     I'll be using the "nixexpr" term for the remainder of the talk
 
+*** Implemented in C++
+    for portability and speed
+
+    Otherwise, it'd probably be an EDSL in Haskell, which would have raised
+    other complaints
+
 *** no specifying document that I could find
     - no formal grammar
     - no language specification
 
+    Most of the research in this part is based on [[https://nixos.org/nix/manual/#ch-expression-language][the manual's Expression Language chapter]]
 *** dynamically typed
-    They use "strongly" typed in their description, but I agree with "What you
-    need to know before debating type systems": "strongly" typed doesn't mean
-    much of anything
+    types are checked at runtime, sometimes coercion occurs
+    #+begin_src sh :results output :session *nix repl* :cache no
+    1 + 1
+    "a" + 1
+    #+end_src
 
+    #+RESULTS:
+    : 1 + 1
+    : 2
+    : "a" + 1
+    : error: cannot coerce an integer to a string, at (string):1:1
+    : "${1}"
+    : error: cannot coerce an integer to a string, at (string):1:2
+    : echo 'org_babel_sh_eoe'
+
+     #+BEGIN_NOTES
+     I'm using an org-babel session to evaluation the nix code since
+     spacemacs doesn't have a nix repl feature that I'm aware of, so I guess the
+     echo part is with us for the remainder of this trip
+     #+END_NOTES
 *** lazy evaluated
     lazy eval is like putting stuff in an online shopping cart.
 
@@ -505,91 +537,168 @@ nix repl '<nixpkgs>'
     nixexprs are ultimately for building packages, so the design is
     constrained on purpose.
 
-** syntax & semantics
-   AKA haskell vs Javascript/JSON
-   https://nixos.org/nix/manual/#ch-expression-language
-   
-   #+begin_notes
-   we'll go over value types and grammatical structures in parallel
-   #+end_notes
 ** The unsurprising stuff
    These parts of the language very much look like either Haskell or
-   Javascript/JSON, so I'm going to group them at the beginning, and get to the
+   Javascript, so I'm going to group them at the beginning, and get to the
    surprising stuff later
+
    
+*** Bitwise operations
+**** bitAnd
+**** bitOr
+**** bitXor
+**** no shifts
+
 *** Numbers
 **** ints: =-10000=
 **** floating point: =123.5467e9=
-**** operators: =+ * < >= =====
+**** operations:
+***** arithmetic has an operator and function each
+      - =+= =add=
+      - =-= =sub= (also negation)
+      - =*= =mul=
 
-     Haskellers, you _won't_ be doing this:
-     #+begin_src sh :session *nix repl* :results value verbatim
-     map (+1) [1 1 1 1]
+      - =/= =div= (=/= is overloaded for paths too)
+***** comparisons
+      - =<= =lessThan=
+      - =<==, =>=, =>= (no function counterpart)
+***** equality operators (also for booleans)
+      - ==== equality 
+      - =!== inequality
+      - no function counterparts for these
+
+     #+begin_src sh :session *nix repl* :results output :cache no
+     1 + 2 - 3 * 4 / 5.0
+     map (builtins.mul 1.0e4) [1 2 3 4]
      #+end_src
 
      #+RESULTS:
-     : error: syntax error, unexpected '+', at (string):1:6
+     : 1 + 2 - 3 * 4 / 5.0
+     : 0.6
+     : map (builtins.mul 1.0e4) [1 2 3 4]
+     : [ 10000 20000 30000 40000 ]
      : echo 'org_babel_sh_eoe'
-
-     #+BEGIN_NOTES
-     Basic arithmetic, inequalities, and equality are the only math operations
-     you will be performing in a nixexpr. You cannot pass operators as function
-     values, you have to use the prefix function version, of which there are only
-     add and multiply. This is a DSL dammit
-
-     ALSO I'm using an org-babel session to evaluation the nix code since
-     spacemacs doesn't have a nix repl feature that I'm aware of, so I guess the
-     echo part is with us for the remainder of this trip
-     #+END_NOTES
 
 *** Booleans
 **** literals: =true=, =false=
+**** operations
+****** equalities ==== =!==
+****** and/or =&&= =||=
 
-**** operators: =!== ==== =->=
-     The arrow is logical implication, =!x || y=
-     #+begin_src sh :session *nix repl* :results value verbatim
-     true -> 1 < 3
-     #+end_src
+****** logical implication =->= (=!x || y=)
+       #+begin_src sh :session *nix repl* :results output :cache no
+       true -> 1 < 3
+       #+end_src
 
-     #+RESULTS:
-     : true
-     : echo 'org_babel_sh_eoe'
+       #+RESULTS:
+       : true
+       : echo 'org_babel_sh_eoe'
 
 *** =null=
     Also, =:t= is a REPL command that prints out the type of an expression, like
     in GHCi
-    #+begin_src sh :session *nix repl* :results value verbatim
+    #+begin_src sh :session *nix repl* :results output :cache no
     :t null
     #+end_src
 
     #+RESULTS:
     : null
     : echo 'org_babel_sh_eoe'
+    
+    The builtin function =typeOf= also does this
 
-** three kinds of strings
-*** "" (double quotes)
+*** Comments
+    =#= for one line comments
+    =/* ... */= for multiline
+
+**** TODO can they nest??
+
+*** =let=-expressions
+    lexical scoping
+
+    You can bind many variables, and later bindings have earlier ones in scope
     #+begin_src nix
-      version = "3.2.1";
+    let pkgs = import <nixpkgs> {};
+        config = import <nixpkgs/nixos> {};
+    in
+    { config, pkgs, ... }: { ... }
+    #+end_src
+*** =if then else=
+*** =abort=, =throw=
+**** src_nix{abort "Don't Panic"}
+     halts evaluation and prints ="Don't Panic"= as an error message
+**** =throw=
+*** =assert=
+**** =assert x; y=
+     the semicolon in the args list is supposed to mean that evaluation
+     continues to the next statement, not that it takes two args
+**** used together with =->=
+     src_nix{ { httpd, httpServer ? false }: assert httpServer -> httpd != null; }
+
+*** =with=-expressions
+    dynamic scoping
+    #+begin_src sh :session *nix repl* :results output :cache no
+    with builtins; map (mul 2) (genList (x: x*x) 7) 
+    :a builtins # :a is a repl command that brings a set's attrs into scope
+    readDir (dirOf (getEnv "HOME"))
+    :r # :r reloads all the files
     #+end_src
 
-    notice also that === is used for bindings, and that delimiting semicolon
-     
-    #+begin_notes
-    I haven't quite figured out the exact rules for the semicolon
+    #+RESULTS:
+    #+begin_example
+    with builtins; map (mul 2) (genList (x: x*x) 7) 
+    [ 0 2 8 18 32 50 72 ]
+    :a builtins # :a is a repl command that brings a set's attrs into scope
+    Added 101 variables.
+    readDir (dirOf (getEnv "HOME"))
+    { guest = "directory"; sam = "directory"; }
+    :r # :r reloads all the files
+    '...
+    Added 10135 variables.
+    echo 'org_babel_sh_eoe'
+    #+end_example
 
-    AND if you use it where expected in the REPL it complains
-    #+end_notes
-
+** three kinds of strings
+   regular, indented, and URL
+*** "" (double quotes) 
+    like your grandboss used to make
     #+REVEAL: split
-    ALSO ALSO, there's no description of how variables work exactly in Nixexprs
+    BTW, there's no description of how variables work exactly in Nixexprs
 
     I looked everywhere (in the documentation)
+**** string literal
+     src_nix{"no tool is the best tool"}
+**** operations
+     #+begin_src sh :session *nix repl* :cache no :results output
+     :a builtins
+     fromJSON ''{"x": [1, 2, 3], "y": null}''
+     hashString "sha256" "moose and squirrel"
+     match "ab" "abc"
+     match "abc" "abc"
+     match "a(b)(c)" "abc"
+     :r
+     #+end_src
 
-    #+BEGIN_NOTES
-    So far, I know you can't lead them with numerals
+     #+RESULTS:
+     #+begin_example
+     :a builtins
+     Added 101 variables.
+     fromJSON ''{"x": [1, 2, 3], "y": null}''
+     { x = [ ... ]; y = null; }
+     hashString "sha256" "moose and squirrel"
+     "ea48540bf8671e37d7e5d3d0b0fea6a0b6b37d06fc977b773a24b52997f036f5"
+     match "ab" "abc"
+     null
+     match "abc" "abc"
+     [ ]
+     match "a(b)(c)" "abc"
+     [ "b" "c" ]
+     :r
+     '...
+     Added 10135 variables.
+     echo 'org_babel_sh_eoe'
+     #+end_example
 
-    are you supposed to read about it in their source??
-    #+END_NOTES
 *** '' '' (indented)
     #+begin_src nix
       postInstall =
@@ -600,8 +709,10 @@ nix repl '<nixpkgs>'
         '';
     #+end_src
 
-    This is used for config file templating, since the text is left-shifted but
-    otherwise text alignment is preserved
+    This is often used for config file templating
+    - when evaluated, the text is shifted to the left-most character then stops
+    - all other indentation is preserved
+    - similar to =<<-HEREDOC=
 
     #+BEGIN_NOTES
     COMPLAINT: I don't know why, but the default indentation settings for
@@ -609,117 +720,304 @@ nix repl '<nixpkgs>'
     bias against the language, I can't objectively say.
     #+END_NOTES
 *** unquoted URIs
-    #+begin_src nix
-    https://gitlab.com/sehqlr/talks
-    #+end_src
-*** ${} (antiquotation)
-    replaces variables with their values (as long as it isn't =null=
-    #+begin_src nix
-      name = "my-awesome-package";
-      version = "0.0.1";
-      copyright =
-        ''
-          Version: ${name}-${version}
-        '';
-    #+end_src
-*** comments are =#= for one line comments, =/* ... */= for multiline, ala JS
-**** TODO screenshot from this? https://twitter.com/TheDailyShow/status/976862147761332231
+    src_nix{ thisTalksRepo = https://gitlab.com/sehqlr/talks; }
+** =${}=
+   antiquotation, AKA string interpolation
 
-     #+begin_src nix
-      /*
-        REPORTER: Hey, JSON, can you speak to why developers complain about
-                  using you as a configuration language?
-      */
+   replaces variables with their values (as long as it isn't =null=)
 
-      # JSON: I have no comments
+   antiquotations can include any Nix expressions, including those with antiquotation
+   src_nix{ "${if email then "noreply@${domain}" else ""}" }
+
+   #+REVEAL: split
+   =null= cannot be antiquoted
+
+   unless it is an attribute key
+   
+   (more on this later)
+
+** Version string operations
+   There are more but here is a sample
+  #+begin_src sh :session *nix repl* :cache no :results output
+  :a builtins
+  compareVersions "1.2.3" "1.2.3"
+  compareVersions "1.2.1" "1.2.3"
+  compareVersions "1.2.5" "1.2.3"
+  splitVersion "1.2.3"
+  :r
+  #+end_src
+
+  #+RESULTS:
+  #+begin_example
+  :a builtins
+  Added 101 variables.
+  compareVersions "1.2.3" "1.2.3"
+  0
+  compareVersions "1.2.1" "1.2.3"
+  -1
+  compareVersions "1.2.5" "1.2.3"
+  1
+  splitVersion "1.2.3"
+  [ "1" "2" "3" ]
+  :r
+  '...
+  Added 10135 variables.
+  echo 'org_babel_sh_eoe'
+  #+end_example
+** Paths
+*** =/= style
+**** literals
+    similar to Unix paths. A slash is required.
+    src_nix{ specialNixexpr = import ./special.nix; }
+
+    #+REVEAL: split
+**** operations
+     #+begin_src sh :session *nix repl* :cache no :results output
+     :a builtins
+     baseNameOf /nix/store
+     dirOf /nix/store
+     :r
      #+end_src
 
-** Paths
-*** / style
-    similar to Unix paths. A slash is required.
-    #+begin_src nix
-    customPackage = import ./custom.nix;
-    #+end_src
+     #+RESULTS:
+     #+begin_example
+     :a builtins
+     Added 101 variables.
+     baseNameOf /nix/store
+     "store"
+     dirOf /nix/store
+     /nix
+     :r
+     '...
+     Added 10135 variables.
+     echo 'org_babel_sh_eoe'
+     #+end_example
+
+     Why are those two not symmetrical???
+     
 *** Converting strings to paths... WHY????
     #+begin_src nix
     absPath = /. + "/hello";
     relPath = ./. + "/hello";
     #+end_src
 
-*** <> style (NIX_PATH is searched)
+*** =<>= style (NIX_PATH is searched)
     #+begin_src nix
-    let pkgs = import <nixpkgs> {};
-        config = import <nixpkgs/modules> {};
+    pkgs = import <nixpkgs> {};
     #+end_src
-    This assumes a file called =default.nix= to be in the directory
+    =<nixpkgs>= in a default Nix setup is a /channel/, which is a collection of
+    nixexprs in a specific directory structure, with a =default.nix= file up top
+
+    And also by default, =<nixpkgs>= refers to the [[https://github.com/NixOS/nixpkgs][the GitHub repo]] which serves
+    as a OS distribution, but also the stdlib of the Nix language
+
+    In my mind, the way to remember is that =<>= is for "vendered" code, and =/=
+    is for local code. IF there is a better way to explain this I'd love to hear
+    it
+
+*** which type of path to use?
+    You'll use =<>= style when dealing with channels (vendors) and =/= style for
+    your own code
+
+** Modularization
+   
+*** =import= function
+    takes a path to a nixexpr or a directory containing a file called
+    =default.nix=, parses it, and returns it. You'll use =import= for qualified
+    imports
+
+*** =imports= attribute in =nixpkgs=
+    This is a feature in =nixpkgs=, not the language, but here's a tip:
+
+    If you are composing configuration for many different packages together (in
+    NixOS, home-manager, etc) use this feature!
+
+    It will load in the config attributes into scope of your
+    top-level nixexpr AND merge the sets in an unsurprising way
+
+*** =fetch*= functions
+   builtins that download stuff from the internet
+
+   This expression loads a particular version of nixpkgs with =fetchTarball= into the current scope
+   #+begin_src nix
+   with import (fetchTarball https://github.com/NixOS/nixpkgs-channels/archive/nixos-14.12.tar.gz) {};
+   #+end_src
+
 ** Lists
-*** square brackets, no commas
-    #+begin_src nix
-    [ ]
+*** zero indexed, square brackets, no commas
+    #+begin_src sh :session *nix repl* :results output :cache no
+    [ 1 2 3 4 ]
     #+end_src
+
+    #+RESULTS:
+    : [ 1 2 3 4 ]
+    : echo 'org_babel_sh_eoe'
+
 *** heterogenous
+    #+begin_src sh :session *nix repl* :results output :cache no
+    [ "foo" 73.1 [ "hello" "world" ] ]
+    #+end_src
+
+    #+RESULTS:
+    : [ "foo" 73.1 [ ... ] ]
+    : echo 'org_babel_sh_eoe'
+
 *** lazy in values, strict in length
     no infinite lists for you!
-** Sets (the most important type!)
-*** a collection of attributes wrapped in curly-braces
-*** access members with =.= syntax
-*** keys are either unquoted, or double-quoted
-*** if key is =null= attr is dropped from set
+
+*** operations and functions
+    
+**** Fairly standard FP functions on lists:
+     =head= =tail= =length= =sort= =any= =all= =concatLists=
+     
+     =++= is the concatenation operator
+
+**** =map=, =filter=, but NO =reduce=
+     only =foldl'=
+
+**** =elem= for testing membership, =elemAt= for accessing value at index
+     out-of-bounds access results in a fatal error!
+
+** Sets 
+*** the most important type
+    Since this is the type that derivations inhabit, sets are the most important
+    one
+*** literals
+
+**** attributes wrapped in ={}= 
+     src_nix{{ name = "world"; greeting = "hello"; }}
+
+     this is why nixexprs look the same as JSON at a distance
+
+*** access attributes with =.= syntax
+    #+begin_src sh :session *nix repl* :cache no :results output
+    let S = { x = 123; foo = "bar"; }; in S.x
+    #+end_src
+
+    #+RESULTS:
+    : 123
+    : echo 'org_babel_sh_eoe'
+
+    #+REVEAL: split
+    OR, return a default
+    #+begin_src sh :session *nix repl* :cache no :results output
+    { x = 123; foo = "bar"; }.y or "default!"
+    #+end_src
+    
+    This is the only time that =or= makes an appearance
+
+    #+RESULTS:
+    : "default!"
+    : echo 'org_babel_sh_eoe'
+
+*** keys are strings
+    
+**** the quotation marks can be dropped most of the time
+**** because they are strings, keys can contain antiquotation
+**** if antiquote evals to =null=, attr is dropped from set
 *** if set has =__functor= it becomes callable
     Because this is Python-esque, and it sounds funny, I'm calling this a
     "dunder functor"
-*** set theory operations
-*** Recursive sets
-    because sets aren't lazy enough??
+
+    This example comes straight from the bottom of the documentation for sets
     #+begin_src nix
-    { x = y; y = 123; }.x #INVALID if y is not in scope outside of set
-    rec {
-      x = y;
-      y = 123;
-    }.x #VALID
+    let add = { __functor = self: x: x + self.x; };
+        inc = add // { x = 1; };
+    in inc 1 # this evaluates to 2
     #+end_src
-** functions
-   NOTE: this was not included in the Values section in the docs even though
-   this is an FP lang. Curious.
-*** whitespace is function application
-*** currying, partial application
-*** two styles for args: lambda and set
-**** lambda arg style
-     #+begin_src nix
-     id = x: x
-     times = x: n: x * n
-     #+end_src
-       
-***** common for classic FP patterns and overrides
-
-**** set arg style
-
-     #+begin_src nix
-     { x, y, z }: x + y + z
-     #+end_src
-***** THE ONLY TIME COMMAS ARE USED
-      WHY ON GODEL'S GREEN EARTH ARE THERE COMMAS HERE?!??!?!?
-      [Terry Crews saying why dot gif]
-
-***** variadic with =...=
-      #+begin_src nix
-      { config, pkgs, ... }: { ... }
-      #+end_src
-
-***** allows for default values
-      #+begin_src nix
-      { name ? "World", greeting ? "Hello" }: "${greeting}, ${name}!"
-      #+end_src
-        
-** Keywords
     
-*** =let in=
-    lexical scoping, as in Haskell (but with semicolons!)
-    #+begin_src nix
-    let pkgs = import <nixpkgs> {};
-    in
-    { config, pkgs, ... }: { ... }
+    #+REVEAL: split
+    Then, they say this:
+    #+begin_quote
+    This can be used to attach metadata to a function without the caller needing to
+    treat it specially, or to implement a form of object-oriented programming, for
+    example.
+    #+end_quote
+    
+    I think I love Dunder Functors now?
+    
+    #+BEGIN_NOTES
+    OK, OK, /so/... Nix has half-assed FP, quarter-assed OOP... if you added in
+    a fourth of Forth you'd probably have a whole language here
+
+    I came up with that joke in the shower
+    #+END_NOTES
+
+** set operations
+   If you looked carefully in that last code source, they used a set operator
+   
+*** merge or =//=
+    #+begin_src sh :session *nix repl* :cache no :results output
+    { sound = 0; dog = "good"; } // { sound = "BARK BARK"; }
     #+end_src
+
+    #+RESULTS:
+    : { dog = "good"; sound = "BARK BARK"; }
+    : echo 'org_babel_sh_eoe'
+    
+*** set membership test
+**** static =?=
+     takes an identifier
+**** dynamic =hasAttr=
+     takes an expression
+     
+    #+begin_src sh :session *nix repl* :cache no :results output
+    :a builtins
+    { x = 123; dog = "good"; } ? dog
+    hasAttr (head ["x"]) { x = 123; dog = "good"; }
+    { x = 123; dog = "good"; } ? (head ["x"])
+    
+    :r
+    #+end_src
+
+    #+REVEAL: split
+    #+RESULTS:
+    #+begin_example
+    :a builtins
+    Added 101 variables.
+    { x = 123; dog = "good"; } ? dog
+    true
+    hasAttr (head ["x"]) { x = 123; dog = "good"; }
+    true
+    { x = 123; dog = "good"; } ? (head ["x"])
+    error: syntax error, unexpected '(', expecting ID or OR_KW or DOLLAR_CURLY or '"', at (string):1:30
+
+    :r
+    '...
+    Added 10135 variables.
+    echo 'org_babel_sh_eoe'
+    #+end_example
+
+*** return attribute from set
+**** static =.=, dynamic =getAttr=
+     just like the pair for testing membership, same for getting
+*** and so many more
+    there are a lot, and the only reference for these is the manual, which has a
+    glossary, and that's it. And the manual covers everything, so if you are
+    just looking for docs on the language, there aren't any standalone ones
+
+    I mean, https://orgmode.org may have old fashioned documentation, but at
+    least they have indexes, and different sized chunks that you can view it in
+
+** attribute scope
+   OK, we are almost done with sets
+*** Recursive sets
+    normal sets don't have internal scope?
+    #+begin_src sh :session *nix repl* :cache no :results output
+    { x = y; y = 123; }.x
+    let y = "yogurt"; in { x = y; y = 123; }.x
+    rec {x = y; y = 123;}.x
+    #+end_src
+
+    #+RESULTS:
+    : { x = y; y = 123; }.x
+    : error: undefined variable 'y' at (string):1:7
+    : let y = "yogurt"; in { x = y; y = 123; }.x
+    : "yogurt"
+    : rec {x = y; y = 123;}.x
+    : 123
+    : echo 'org_babel_sh_eoe'
+
 *** =inherit=
     copy vars from the surrounding lexical scope, aka propogation
 
@@ -736,40 +1034,89 @@ nix repl '<nixpkgs>'
     inherit (src-set) a b c;
     a = src-set.a; b = src-set.b; c = src-set.c
     #+end_src
-*** conditionals =if then else=
+** Lambdas
+   this was not included in the Values section in the docs even though this is
+   an FP lang. Curious.
+*** whitespace is function application
+    src_nix{builtins.add 1 2}
+*** partial application
+    #+begin_src sh :session *nix repl* :cache no :results output
+    :t builtins.add 1
+    #+end_src
 
-*** assertions
-**** =assert e1; e2=
+    #+RESULTS:
+    : the partially applied built-in function 'add'
+    : echo 'org_babel_sh_eoe'
 
-     =if e1 then e2 else abort=
-**** logical implication, =e1 -> e2=
-     =e1= /implies/ =e2=, or =!e1 || e2=
-**** used together
+*** three styles for lambda literals
+**** single identifier pattern
+     If there is a single identifier in front of the colon, the function matches
+     any argument. If you nest many of these together, you get positional
+     arguments, just like in the lambda calculus
+
      #+begin_src nix
-     { httpd, httpServer ? false }: assert httpServer -> httpd != null;
+     id = x: x
+     times = x: n: x * n
      #+end_src
 
-*** with expressions
-    dynamic scoping, which I've read on the internet are bad, or good for you
-    #+begin_src nix
-    with builtins; map blah [blahs]
-    #+end_src
-** ergonomics
+     I personally call these "lambda-style"
 
-*** the "stdlib" from Nixpkgs
+     common for classic FP patterns and overrides
 
-**** buildtins.*
+**** set pattern
+     matches a set containing the listed attributes, and bind those values to
+     variables
+     #+begin_src nix
+     { x, y, z }: x + y + z
+     #+end_src
+     This lambda only allows for a set containing *exactly* those attributes
+
+     This is useful for writing functions that have a precise semantic meaning,
+     e.g. the input set represents a point in 3D space
+     
+     AKA the best you can do to write your own types
+
+**** variadic args with =...=
+     This form allows for any set containing *at least* those attributes
+     src_nix{ { config, pkgs, ... }: { ... } }
+     Not to be confused by the "etcetera" meaning of the ellipse used elsewhere
+
+**** default values
+     src_nix{ { name ? "World", greeting ? "Hello" }: "${greeting}, ${name}!" }
+
+     Notice our friend =?=
+
+     #+REVEAL: split
+     Notice how the semantics are the same as =or=, NOT as the set membership
+     operator =?=
+
+     I only fully figured this out YESTERDAY
+**** @-pattern
+     This is an extension of set patterns, mostly as a way of referring to those
+     variadic attributes
+
+     It can be written in two ways
+     #+begin_src nix
+     args@{ x, y, z, ... }: z + y + x + args.a
+     { x, y, z, ... } @ args: z + y + x + args.a
+     #+end_src
+**** the only time commas are used
+     This was an early reason why I soured on Nixlang, but then I found so many
+     other things that irked me way more,
+
+     #+BEGIN_NOTES
+     LIKE THE =?= THING
+     #+END_NOTES
+
+* Nixpkgs
+
+** the "stdlib" from Nixpkgs
+
+*** buildtins.*
 
 
-*** nice: all the ecosystem runs on the lang
-**** counterpoint: everything runs on JSON or YAML, so what
-*** semicolons are not consistent
-**** TODO because of assignment??
-**** inside of let and with
-**** not outside toplevel expressions
-**** inside of sets
-**** not inside lists
-
+** nice: all the ecosystem runs on the lang
+*** counterpoint: everything runs on JSON or YAML, so what
 * Do we have other options? Sorta
   from least to most experimental
 ** {cabal,yarn,composer,...}2nix
@@ -800,7 +1147,7 @@ nix repl '<nixpkgs>'
 
   #+RESULTS:
   : nix (Nix) 2.2.2
-** segue: let's build the nixexpr!
+** segue: let's build a nixexpr!
    
 *** nix build command(s)
 
