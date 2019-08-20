@@ -10,7 +10,7 @@
 
 * Preamble
   #+begin_src sh :eval never
-    notmuch search --output=files --format=text0 tag:lists or from:meetup.com or from:lobste.rs | xargs -0 cat | grep '^From:.*@' | grep -vi '?utf' | sort | uniq | cut -c7- > addresses.txt
+    notmuch search --output=files --format=text0 tag:lists or from:meetup.com or from:lobste.rs | xargs -0 cat | grep '^From:.*@' | sort | uniq | cut -c7- > addresses.txt
   #+end_src
 
 * Meetup Blurb                                                     :noexport:
@@ -82,6 +82,52 @@
    regex into subregexes, implement those into parser functions, then use the
    combinators to arrive at our solution
 
+   but first, lets make this a little easier to read
+
+   #+begin_src sh :results output verbatim :exports both
+     cat ./emailregex.txt | sed 's/(?:/\n(?:/g'
+   #+end_src
+
+   #+RESULTS:
+   #+begin_example
+
+   (?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+
+   (?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"
+   (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@
+   (?:
+   (?:[a-z0-9]
+   (?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9]
+   (?:[a-z0-9-]*[a-z0-9])?|\[
+   (?:
+   (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}
+   (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:
+   (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])
+   #+end_example
+** Attoparsec basics
+    at this time, i realized that there is one character that all email
+    addresses have... =@=! and turns out that this is a great place to start
+    with some attoparsec
+
+    What is parser?
+    What is combinator?
+
+    at :: Parser Char
+    at = char '@'
+
+    parse at "@" 
+
+** Regex metacharacters to Attoparsec parsers, part I
+*** Match any single character
+    * Regex :: =.= matches anything, including newlines sometimes
+    * Attoparsec :: =anyChar :: Parser Char=
+*** Match the end of line
+    * Regex :: =$= matches the end of a line
+    * Attoparsec :: =endOfLine :: Parser ()=
+*** NOTE
+    Since functions are now orthogonal to text data, there are no more
+    metacharacters, and therefore, no more metacharacter escaping. If you want
+    to match an opening square bracket, =char '['= is all you need! This will
+    become important later
 ** Characters Classes and Capture Groups
 *** Classes
     So, in regexes, there are character classes, delimited by square brackets,
@@ -99,35 +145,70 @@
     So, I decided to extract out all the character classes, deduplicate them,
     and see if I can understand their semantics
     
-    #+begin_example
-    [a-z0-9!#$%&'*+/=?^_`{|}~-] (*2)
-    [\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]
-    [\x01-\x09\x0b\x0c\x0e-\x7f]
-    [a-z0-9]
-    [a-z0-9]
-    [a-z0-9]
-    [a-z0-9]
-    [a-z0-9-]
-    [a-z0-9-]
-    [\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]
-    [\x01-\x09\x0b\x0c\x0e-\x7f]
-    #+end_example
+**** Alphanumeric-ish character classes
+    So, the first three are *really* easy to translate, both syntactically and
+    semantically. Attoparsec defines a function =inClass :: String -> Char ->
+    Bool=. As you can see, it doesn't return a =Parser= type. I looked at the
+    source, and it actually uses an unboxed =FastSet= type for performant
+    membership testing. Since this library is meant for performance over
+    everything else, there are little oddities... at least, that's what I tell
+    myself.
 
-   What is one thing that all email addresses have? =@=! That means we can now
-   split this monster up into three parts, beforeAt, =@=, then afterAt.
+    Back to the character class...
+***** Match =a= to =z= and =0= to =9=
+      * Regex :: =[a-z0-9]=
+      * Attop :: =inClass "a-z0-9"=
+***** Same as above, but with a hyphen
+      * Regex :: =[a-z0-9-]=
+      * Attop :: =inClass "a-z0-9-"=
+***** Whatever this grabbag of characters is supposed to be
+      * Regex :: =[a-z0-9!#$%&'*+/=?^_`{|}~-]=
+      * Attop :: =inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"=
+
+**** interlude: start replacing formatted regex with Haskell
+    #+begin_src haskell
+    alnum :: Char -> Bool
+    alnum = inClass
+    {-
+    (?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+
+    (?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"
+    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@
+    (?:
+    (?:[a-z0-9]
+    (?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9]
+    (?:[a-z0-9-]*[a-z0-9])?|\[
+    (?:
+    (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}
+    (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:
+    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])
+    -}
+    #+end_src
+
+**** ASCII Control Code
+    #+begin_example
+    [\x01-\x09\x0b\x0c\x0e-\x7f] (*2) (A)
+    [\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f] (B)
+    [\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f] (C)
+    #+end_example
+***** binary stuff
+      * Regex :: =[a-z0-9!#$%&'*+/=?^_`{|}~-]=
+      * Attop :: =inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"=
+
+    
+
+    A D == NL CR
+    9 A D 20 22 5C == TAB NL CR Space " \
+    9 A D 20 5C == TAB NL CR Space \
+
 
    
 * Demo & comparison
 ** demo on finding email addresses in all my messages from meetup.com
-*** regex first
-*** then atto
 
 ** qualitative analysis
 *** better comments
 *** lexical binding -> modular code
 
-** quantitative/static analysis of source code??
-** benchmarks??
 * Closing
 * Contact
   THANK YOU
