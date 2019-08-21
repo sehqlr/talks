@@ -27,16 +27,14 @@
   Development. His research interests include data science and formal methods.
 * Opening
 ** emailregex.com
-   Let's load up a saved version of the website with the ads removed
 
-   #+begin_quote
-   Email Address Regular Expression That 99.99% Works. Disagree? Join Discussion! 
-   #+end_quote
+img title
+img regex
 
-   - The website says that it's powered by ZenBase, and they have a regex visualization tool alongside the regex itself
 ** the regex
    
-   #+begin_src sh :results output verbatim :exports both
+   #+begin_src sh :results output :exports both
+     wc -c ./emailregex.txt
      fold ./emailregex.txt
    #+end_src
 
@@ -48,8 +46,7 @@
    : |[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x
    : 09\x0b\x0c\x0e-\x7f])+)\])
 
-   - This is 427 characters long, or six lines when line width is set to 80
-   - This is just the groups: ~sed 's/[^()]//g' emailregex.txt~
+   This is 427 characters long, or six lines when line width is set to 80
 ** Why is it so complex?
    This email regex doesn't just include the kind of email address that you
    include in registration forms, like this one: =hey@samhatfield.me=
@@ -158,7 +155,7 @@
 ***** Match =a= to =z= and =0= to =9=
       * Regex :: =[a-z0-9]=
       * Attop :: =inClass "a-z0-9"=
-***** Same as above, but with a hyphen
+***** TODO Same as above, but with a hyphen
       * Regex :: =[a-z0-9-]=
       * Attop :: =inClass "a-z0-9-"=
 ***** Whatever this grabbag of characters is supposed to be
@@ -167,48 +164,203 @@
 
 **** interlude: start replacing formatted regex with Haskell
     #+begin_src haskell
-    alnum :: Char -> Bool
-    alnum = inClass
+    at :: Parser Char
+    at = char '@'
+
+    inAlnum :: Char -> Bool
+    inAlnum = inClass "a-z0-9-"
+
+    inAlnumHyphen :: Char -> Bool
+    inAlnumHyphen = inClass "a-z0-9-"
+
+    inGrabBag :: Char -> Bool
+    inGrabBag = inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"
+
     {-
-    (?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+
-    (?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"
-    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@
+    (?: inGrabBag +
+    (?:\. inGrabBag +)*|"
+    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")
+    at
     (?:
-    (?:[a-z0-9]
-    (?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9]
-    (?:[a-z0-9-]*[a-z0-9])?|\[
+    (?: inAlnum
+    (?: inAlnumHyphen * inAlnum )?\.)+ inAlnum
+    (?: inAlnumHyphen * inAlnum )?|\[
     (?:
     (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}
-    (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:
+    (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?| inAlnum * inAlnum :
     (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])
     -}
     #+end_src
 
-**** ASCII Control Code
+** Combinators
+*** IP parser
+    take a look at this
     #+begin_example
-    [\x01-\x09\x0b\x0c\x0e-\x7f] (*2) (A)
-    [\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f] (B)
-    [\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f] (C)
+    (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}
+    (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?| inAlnum * inAlnum :
     #+end_example
-***** binary stuff
-      * Regex :: =[a-z0-9!#$%&'*+/=?^_`{|}~-]=
-      * Attop :: =inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"=
 
+    That kinda looks like an IP address parser to me!
+
+    Since the IP address has to be a valid one, we have to make sure that the
+    numbers are within a certain range. The regex does this in a very literal
+    way: it checks to see if the numerals line up. But, we can do better, with
+    =satisfy :: (Char -> Bool) -> Parser Char=
+
+    BTW, there is a library called =ip= that does this better, and returns data
+    rather than just validation.
+
+    #+begin_src haskell
+      dot :: Parser Char
+      dot = char '.'
+
+      ip :: Parser Text
+      ip = do
+        count 3 $ octet <*> dot
+        octet
+        where
+          octet = decimal >>= limitSize
+          limitSize i =
+            if i > 255
+            then fail "All octets in an ipv4 address must be between 0 and 255"
+            else return i
+    #+end_src
+
+    so now, with a the IP part looks like
+    #+begin_src haskell
+    at :: Parser Char
+    at = char '@'
+
+    inAlnum :: Char -> Bool
+    inAlnum = inClass "a-z0-9-"
+
+    inAlnumHyphen :: Char -> Bool
+    inAlnumHyphen = inClass "a-z0-9-"
+
+    inGrabBag :: Char -> Bool
+    inGrabBag = inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"
+
+    dot :: Parser Char
+    dot = char '.'
+
+    ip :: Parser Text
+    ip = do
+      count 3 $ octet <*> dot
+      octet <|> hyphenSepAlnum <*> char ':' <*>  
+      where
+        octet = decimal >>= limitSize
+        limitSize i =
+          if i > 255
+          then fail "All octets in an ipv4 address must be between 0 and 255"
+          else return i
+
+    {-
+    (?: inGrabBag +
+    (?: dot inGrabBag +)*|"
+    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")
+    at
+    (?:
+    (?: inAlnum
+    (?: inAlnumHyphen * inAlnum )? dot)+ inAlnum
+    (?: inAlnumHyphen * inAlnum )?
+    (?: char '[' <*> ip char ']'
+    -}
+    #+end_src
+*** ASCII Sequences
+   These are slices of the ASCII character set excluding certain characters
+**** Excludes NL, CR (newline, carriage return)
+     * Regex :: =[\x01-\x09\x0b\x0c\x0e-\x7f]=
+     * Attop :: =notInClass "\n\r"=
+**** Excludes NL, CR, TAB, Space, and \
+     * Regex :: =[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]=
+     * Attop :: =notInClass "\n\r\t \\"=
+**** Excludes NL, CR, TAB, Space, \, and " (double quote)
+     * Regex :: =[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]=
+     * Attop :: =notInClass "\n\r\t \\\""=
+*** combining them?
+    #+begin_src haskell
+      -- something about escaping characters in here
+      notInClass "\n\r\t \\\"" <|> char '\\' <*> notInClass "\n\r"
+    #+end_src
+*** interlude
+    #+begin_src haskell
+    at :: Parser Char
+    at = char '@'
+
+    inAlnum :: Char -> Bool
+    inAlnum = inClass "a-z0-9-"
+
+    inAlnumHyphen :: Char -> Bool
+    inAlnumHyphen = inClass "a-z0-9-"
+
+    inGrabBag :: Char -> Bool
+    inGrabBag = inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"
+
+    dot :: Parser Char
+    dot = char '.'
+
+    ip :: Parser Text
+    ip = do
+      count 3 $ octet <*> dot
+      octet
+      where
+        octet = decimal >>= limitSize
+        limitSize i =
+          if i > 255
+          then fail "All octets in an ipv4 address must be between 0 and 255"
+          else return i
+
+    {-
+    (?: inGrabBag +
+    (?: dot inGrabBag +)*|"
+    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")
+    at
+    (?:
+    (?: inAlnum
+    (?: inAlnumHyphen * inAlnum )? dot)+ inAlnum
+    (?: inAlnumHyphen * inAlnum )?|\[
+    (?: ip | inAlnum * inAlnum :
+    (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])
+    -}
+    #+end_src
+*** regex metacharacters to attoparsec parsers, part II
+**** * == many :: f a -> f [a]
+**** + == many1 :: Alternative f => f a -> f [a]
+**** ? ==
+**** | == (<|>) :: f a -> f a -> f a
+*** another interlude
+    #+begin_src haskell :tangle email.hs
+    at = char '@'
+
+    inAlnum = inClass "a-z0-9-"
+
+    inAlnumHyphen = inClass "a-z0-9-"
+
+    inGrabBag = inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"
     
+    dotSep p = p `sepBy` (char '.')
 
-    A D == NL CR
-    9 A D 20 22 5C == TAB NL CR Space " \
-    9 A D 20 5C == TAB NL CR Space \
+    hyphenSepAlnum = inAlnum `sepBy` (char '-') 
+    
+    ip :: Parser Text
+    ip = do
+      count 3 $ octet <*> dot
+      octet <|> group
+      where
+        group = hyphenSepAlnum <*> char ':' <*> many1 $ notInClass "\n\r\t \\" <|> char '\\' <*> notInClass "\n\r"
+        octet = decimal >>= limitSize
+        limitSize i =
+          if i > 255
+          then fail "All octets in an ipv4 address must be between 0 and 255"
+          else return i
 
+    emailValidator = do
+      many $ dotSep inGrabBag <|> char '"' <*> many _binaryStuff1 <*> char '"'
+      <*> at
+      <*> many $ dotSep <$> hyphenSepAlnum <|> char '[' <*> ip <*> char ']'
+    #+end_src
 
    
-* Demo & comparison
-** demo on finding email addresses in all my messages from meetup.com
-
-** qualitative analysis
-*** better comments
-*** lexical binding -> modular code
-
 * Closing
 * Contact
   THANK YOU
@@ -217,5 +369,4 @@
 
   {{{slack}}}
 
-  {{{email}}}
 
