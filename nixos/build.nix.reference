@@ -1,0 +1,12 @@
+# -*- nix -*-
+{ pkgs ? import <nixpkgs> {}, ... }:
+pkgs.stdenv.mkDerivation {
+    name = "mud-pi";
+    builder = ./builder.sh;
+    src = pkgs.fetchFromGitHub {
+      owner = "Frimkron";
+      repo = "mud-pi";
+      rev = "a152f20516cde03411db4015211e3d3b64c8d883";
+      sha256 = "18g3xzy7l3dhgma7msxnghr7a47vqyb9q9w9ixmvnnsj22z7gagn";
+    };
+  }

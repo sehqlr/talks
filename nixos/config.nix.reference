@@ -1,0 +1,19 @@
+# -*- nix -*-
+{ config, lib, pkgs, ... }:
+let cfg = config.services.mud-pi;
+    pkg = import ./build.nix {};
+    in
+{
+
+  options.services.mud-pi.enable = lib.options.mkEnableOption "mud-pi";
+
+  config = lib.mkIf cfg.enable {
+    systemd.services.mud-pi = {
+      description = "Mud-Pi service";
+      serviceConfig = {
+        ExecStart = "${pkgs.python}/bin/python ${pkg}/simplemud.py";
+      };
+      wantedBy = [ "default.target" ];
+    };
+  };
+}

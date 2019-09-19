@@ -1,8 +1,3 @@
----
-title: emailregex.com to Attoparsec: a walkthrough
-author: Sam Hatfield <hey@samhatfield.me>
-...
-
 = Opening
 
 == hello, this was unexpected
@@ -42,8 +37,8 @@ We need the Applicative module, Attoparsec assumes that many and <|> are in
 > import Control.Applicative
 > import Data.Attoparsec.Text
 
-Attoparsec don't want no Strings,
-Strings are data that won't get parsed, no way
+Attoparsec dont want no Strings,
+Strings are data that wont get parsed, no way
 
 > import qualified Data.Text as T
 > import qualified Data.Text.IO as TIO
@@ -59,6 +54,10 @@ to start with Attoparsec
 
 > at :: Parser Char
 > at = char '@'
+
+
+> dot :: Parser Char
+> dot = char '.'
 
 == Character Classes
 
@@ -82,6 +81,7 @@ Original regex:
 === inAlnumHyphen
 
 Original regex:
+
     [a-z0-9-]
 
 > inAlnumHyphen = inClass "a-z0-9-"
@@ -91,6 +91,7 @@ Original regex:
 I called it that because I had no idea what the semantics were
 
 Original regex:
+
     [a-z0-9!#$%&'*+/=?^_`{|}~-]
 
 > inGrabBag = inClass "a-z0-9!#$%&'*+/=?^_`{|}~-"
@@ -100,7 +101,7 @@ function `notInClass`, which will come up later.
 
 === update regex
 
-Now, let's try to replace some of the formatted regex with our function names,
+Now, lets try to replace some of the formatted regex with our function names,
 just to see how much more sense we can get from it
 
     (?: inGrabBag +
@@ -119,6 +120,7 @@ just to see how much more sense we can get from it
 == IPv4 address
 
 Take a look at these lines from the regex:
+
     (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}
     (?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?| inAlnum * inAlnum :
     (?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])
@@ -127,7 +129,7 @@ Those first two lines kinda looks like an IP address parser to me! HOWEVER, we
 have to actually include the last line because the capture group after the
 `{3}` goes the 4th last character in the regex
 
-Also, there's a mistake?? `\x21-\x5a\x53-\x7f == \x21-\x7f`, right??
+Also, theres a mistake?? `\x21-\x5a\x53-\x7f == \x21-\x7f`, right??
 
 Since the IP address has to be a valid one, we have to make sure that the
 numbers are within a certain range. The regex does this in a very literal
@@ -151,7 +153,10 @@ three times
 Then, you have a choice between a final octet and a "mail group", which is a
 term from the RFC that describes that sequence after the IPv4 octets. The
 binary sequences cover most of ASCII execpt for certain characters, most
-commonly LF and CR. I'm pretty sure the alternative starting with `char '\\`'`
+commonly LF and CR. Im pretty sure the alternative starting with
+
+    char '\\`'
+
 is for escaped characters within the address itself.
 
 >   octet <|> group
@@ -190,10 +195,11 @@ function call for Attoparsec!
 
 === sepBy
 
-> dotSep p = p `sepBy` (char '.')
+> dotSep p = p `sepBy` dot
 > hyphenSepAlnum = inAlnum `sepBy` (char '-')
 
 === include those
+
     (?: dotSep inGrabBag |"
     (?: notInClass "\n\r\t \\\"" | char '\\' notInClass "\n\r")*")
     at
@@ -213,13 +219,12 @@ together: quantifiers and the choice operator
 == Putting it all together: emailValidator
 
 > emailValidator :: Parser T.Text
-> emailValidator = do
->   many $ dotSep inGrabBag <|> (char '"') <*> many $ notInClass "\n\r\t \\\"" <*> char '"'
+> emailValidator =
+>   many <$>
+>     dotSep inGrabBag
+>   <|> (char '"') <*> (many $ notInClass "\n\r\t \\\"") <*> char '"'
 >   <*> at
->   <*> many $ dotSep <$> hyphenSepAlnum <|> do
-> 						char '['
->                                                 ip
->                                                 char ']'
+>   <*> hyphenSepAlnum <*> dotSep  <|> char '[' <*> ip <*> char ']'
 
 == The main event
 
