@@ -1,7 +1,6 @@
 ---
-title: Nix and NixOS: Configure an OS with a package manager?! How??
+title: "Nix and NixOS: Configure an OS with a package manager?! How??"
 author: Sam Hatfield \<hey@samhatfield.me\>
-date: 2019-09-19
 ---
 
 Hello, LUG!
