@@ -3,6 +3,9 @@ languageCode = "en-us"
 title = "Sam Hatfield's Talks"
 theme = "reveal-hugo"
 
+[author]
+name = "Sam Hatfield"
+
 [outputFormats.Reveal]
 baseName = "index"
 mediaType = "text/html"
