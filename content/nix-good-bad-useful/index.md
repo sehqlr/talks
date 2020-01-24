@@ -7,8 +7,12 @@ layout = "list"
 Hey Polyglots :)
 ================
 
+---
+
 Why I wanted to give this talk
 ------------------------------
+
+---
 
 ### share the feelings
 
@@ -17,6 +21,8 @@ about
 
 I\'ve been using it on and off for 3 years, and I haven\'t gotten bored
 yet
+
+---
 
 ### new kind of intro
 
