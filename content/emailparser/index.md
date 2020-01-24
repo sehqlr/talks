@@ -11,6 +11,8 @@ Preamble
 notmuch search --output=files --format=text0 tag:lists or from:meetup.com or from:lobste.rs | xargs -0 cat | grep '^From:.*@' | sort | uniq | cut -c7- > addresses.txt
 ```
 
+---
+
 Opening
 =======
 
@@ -18,6 +20,8 @@ emailregex.com
 --------------
 
 img title img regex
+
+---
 
 the regex
 ---------
